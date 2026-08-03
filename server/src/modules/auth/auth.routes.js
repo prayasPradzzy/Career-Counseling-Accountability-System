@@ -21,4 +21,7 @@ router.post("/login", validate(loginSchema), authController.login);
 // Uses the requireAuth middleware to ensure only logged-in users can access it
 router.get("/me", requireAuth, authController.getMe);
 
+// POST /api/v1/auth/logout
+router.post("/logout", authController.logout);
+
 module.exports = router;

@@ -35,6 +35,14 @@ const userSchema = new mongoose.Schema(
       enum: ["student", "counselor", "admin"],
       default: "student",
     },
+    // Optional activation status for invited accounts
+    isActivated: {
+      type: Boolean,
+      default: true,
+    },
+    activatedAt: {
+      type: Date,
+    },
   },
   {
     timestamps: true, // Automatically manages createdAt and updatedAt

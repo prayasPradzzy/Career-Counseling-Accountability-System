@@ -70,6 +70,8 @@ app.use(express.urlencoded({ extended: true, limit: "10kb" }));
 app.use(cookieParser());
 
 const authRoutes = require("./modules/auth/auth.routes");
+const clientRoutes = require("./modules/clients/client.routes");
+const assessmentAssignmentRoutes = require("./modules/assessments/assessmentAssignment.routes");
 const errorHandler = require("./shared/middleware/error.middleware");
 
 // ============================================================
@@ -88,6 +90,8 @@ app.get("/api/v1/health", (req, res) => {
 
 // Mount feature routes
 app.use("/api/v1/auth", authRoutes);
+app.use("/api/v1/clients", clientRoutes);
+app.use("/api/v1/assessments", assessmentAssignmentRoutes);
 
 // ============================================================
 // 404 HANDLER — Catch all unmatched routes

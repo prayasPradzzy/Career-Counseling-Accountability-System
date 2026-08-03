@@ -39,6 +39,17 @@ class AuthController {
     // by the requireAuth middleware.
     res.status(200).json(new ApiResponse(200, { user: req.user }, "Current user retrieved successfully"));
   });
+
+  logout = catchAsync(async (req, res) => {
+    res.cookie("token", "", {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "Lax",
+      expires: new Date(0),
+    });
+
+    res.status(200).json(new ApiResponse(200, null, "Logout successful"));
+  });
 }
 
 module.exports = new AuthController();
