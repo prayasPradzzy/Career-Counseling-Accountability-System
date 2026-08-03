@@ -1,0 +1,8 @@
+// Wrapper to avoid wrapping every controller function in try-catch blocks
+const catchAsync = (requestHandler) => {
+  return (req, res, next) => {
+    Promise.resolve(requestHandler(req, res, next)).catch((err) => next(err));
+  };
+};
+
+module.exports = catchAsync;
