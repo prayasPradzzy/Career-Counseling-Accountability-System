@@ -12,6 +12,20 @@ router.get("/my-assignments", controller.getMyAssignments);
 // Get assignments for a specific student (Student own, or Counselor/Admin)
 router.get("/student/:studentId", controller.getStudentAssignments);
 
+// Counselor/Admin fetches all assignments for review
+router.get(
+  "/counselor-assignments",
+  restrictTo("counselor", "admin"),
+  controller.getCounselorAssignments
+);
+
+// Counselor/Admin fetches full review details for a specific assignment
+router.get(
+  "/assignments/:assignmentId/review-detail",
+  restrictTo("counselor", "admin"),
+  controller.getAssignmentReviewDetail
+);
+
 // Counselor/Admin assigns an assessment to a student
 router.post(
   "/assignments",
@@ -37,6 +51,13 @@ router.patch(
   "/assignments/:assignmentId/approve",
   restrictTo("counselor", "admin"),
   controller.approveAssignment
+);
+
+// Counselor requests retake / rejects assessment
+router.patch(
+  "/assignments/:assignmentId/reject",
+  restrictTo("counselor", "admin"),
+  controller.rejectAssignment
 );
 
 // Counselor/Admin revokes assignment

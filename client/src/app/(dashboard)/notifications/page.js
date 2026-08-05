@@ -1,15 +1,17 @@
 "use client";
 
 import { useState } from "react";
-import { mockNotificationsData } from "@/data/notifications";
+import { useAuth } from "@/context/AuthContext";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { ActivityCard } from "@/components/common/ActivityCard";
 import { EmptyIllustration } from "@/components/common/EmptyIllustration";
+import { LoadingSkeleton } from "@/components/layout/LoadingSkeleton";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 
 export default function NotificationsPage() {
-  const [notifications, setNotifications] = useState(mockNotificationsData.notifications);
+  const { user, isLoading } = useAuth();
+  const [notifications, setNotifications] = useState([]);
 
   const unreadCount = notifications.filter((n) => !n.read).length;
 
@@ -21,7 +23,14 @@ export default function NotificationsPage() {
     setNotifications([]);
   };
 
-  const groups = ["Today", "Yesterday", "Earlier"];
+  if (isLoading) {
+    return (
+      <div className="space-y-6">
+        <PageHeader title="Notifications" subtitle="Loading alerts..." />
+        <LoadingSkeleton cards={3} />
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -65,38 +74,24 @@ export default function NotificationsPage() {
             </Button>
           </div>
 
-          {/* Grouped Alert Cards consuming mockNotificationsData */}
-          {groups.map((groupName) => {
-            const items = notifications.filter((n) => n.group === groupName);
-            if (items.length === 0) return null;
-
-            return (
-              <div key={groupName} className="space-y-3">
-                <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground px-1">
-                  {groupName}
-                </h3>
-
-                <div className="space-y-2">
-                  {items.map((item) => (
-                    <ActivityCard
-                      key={item.id}
-                      title={item.title}
-                      description={item.description}
-                      timestamp={item.time}
-                      iconName={item.iconName}
-                      className={!item.read ? "bg-primary/5 border-primary/20" : ""}
-                    />
-                  ))}
-                </div>
-              </div>
-            );
-          })}
+          <div className="space-y-2">
+            {notifications.map((item) => (
+              <ActivityCard
+                key={item.id}
+                title={item.title}
+                description={item.description}
+                timestamp={item.time}
+                iconName={item.iconName || "Bell"}
+                className={!item.read ? "bg-primary/5 border-primary/20" : ""}
+              />
+            ))}
+          </div>
         </div>
       ) : (
         <EmptyIllustration
           iconName="Bell"
           title="No Notifications"
-          description="You're all caught up! New alerts and session reminders will appear here."
+          description="You're all caught up! New alerts, test completion notices, and session reminders will appear here."
         />
       )}
     </div>

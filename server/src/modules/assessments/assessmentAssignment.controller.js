@@ -44,6 +44,24 @@ const approveAssignment = catchAsync(async (req, res) => {
   res.status(200).json(new ApiResponse(200, { assignment }, "Assessment approved successfully."));
 });
 
+const getCounselorAssignments = catchAsync(async (req, res) => {
+  const assignments = await assessmentAssignmentService.getCounselorAssignments(req.user, req.query);
+  res.status(200).json(new ApiResponse(200, { assignments }, "Counselor assignments retrieved successfully."));
+});
+
+const rejectAssignment = catchAsync(async (req, res) => {
+  const { assignmentId } = req.params;
+  const { counselorNotes } = req.body;
+  const assignment = await assessmentAssignmentService.rejectAssignment(assignmentId, counselorNotes, req.user);
+  res.status(200).json(new ApiResponse(200, { assignment }, "Assessment marked for retake / rejected."));
+});
+
+const getAssignmentReviewDetail = catchAsync(async (req, res) => {
+  const { assignmentId } = req.params;
+  const reviewData = await assessmentAssignmentService.getAssignmentReviewDetail(assignmentId, req.user);
+  res.status(200).json(new ApiResponse(200, reviewData, "Assignment review detail retrieved successfully."));
+});
+
 const deleteAssignment = catchAsync(async (req, res) => {
   const { assignmentId } = req.params;
   const result = await assessmentAssignmentService.deleteAssignment(assignmentId, req.user);
@@ -54,9 +72,12 @@ module.exports = {
   assignAssessment,
   getStudentAssignments,
   getMyAssignments,
+  getCounselorAssignments,
   startAssignment,
   completeAssignment,
   reviewAssignment,
   approveAssignment,
+  rejectAssignment,
+  getAssignmentReviewDetail,
   deleteAssignment,
 };

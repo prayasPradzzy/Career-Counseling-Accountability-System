@@ -24,9 +24,9 @@ export function StudentDashboardView({ data }) {
     <div className="space-y-6">
       {/* 1. Operational Stat Cards Grid */}
       <WidgetGrid cols={{ default: 1, sm: 2, lg: 3 }}>
-        {stats.map((stat) => (
+        {stats.map((stat, idx) => (
           <StatCard
-            key={stat.id}
+            key={stat.id || stat._id || `stat-${idx}`}
             title={stat.label}
             value={stat.value}
             note={stat.note}
@@ -55,9 +55,9 @@ export function StudentDashboardView({ data }) {
             }
           >
             <div className="space-y-3 pt-2">
-              {assessments.map((ass) => (
+              {assessments.map((ass, idx) => (
                 <div
-                  key={ass.id}
+                  key={ass.id || ass._id || `ass-${idx}`}
                   className="flex items-center justify-between p-3.5 rounded-lg border border-border bg-card hover:bg-muted/30 transition-colors"
                 >
                   <div className="space-y-1">
@@ -82,9 +82,9 @@ export function StudentDashboardView({ data }) {
             iconName="Compass"
           >
             <div className="grid grid-cols-1 md:grid-cols-3 gap-3 pt-2">
-              {recommendations.map((rec) => (
+              {recommendations.map((rec, idx) => (
                 <div
-                  key={rec.id}
+                  key={rec.id || rec._id || `rec-${idx}`}
                   className="p-3.5 rounded-lg border border-border bg-gradient-to-b from-card to-muted/20 space-y-2 flex flex-col justify-between"
                 >
                   <div>
@@ -109,9 +109,9 @@ export function StudentDashboardView({ data }) {
             iconName="FileText"
           >
             <div className="space-y-3 pt-2">
-              {reports.map((rep) => (
+              {reports.map((rep, idx) => (
                 <div
-                  key={rep.id}
+                  key={rep.id || rep._id || `rep-${idx}`}
                   className="flex items-center justify-between p-3.5 rounded-lg border border-border bg-card"
                 >
                   <div className="space-y-0.5">
@@ -147,8 +147,8 @@ export function StudentDashboardView({ data }) {
             iconName="Calendar"
           >
             <div className="space-y-3 pt-2">
-              {sessions.map((sess) => (
-                <div key={sess.id} className="p-3.5 rounded-lg border border-primary/20 bg-primary/5 space-y-2">
+              {sessions.map((sess, idx) => (
+                <div key={sess.id || sess._id || `sess-${idx}`} className="p-3.5 rounded-lg border border-primary/20 bg-primary/5 space-y-2">
                   <div className="flex items-center justify-between">
                     <span className="font-semibold text-sm text-foreground">{sess.counselorName}</span>
                     <StatusBadge status={sess.status} />
@@ -170,8 +170,8 @@ export function StudentDashboardView({ data }) {
             iconName="ListTodo"
           >
             <div className="space-y-2.5 pt-2">
-              {tasks.map((task) => (
-                <div key={task.id} className="flex items-start gap-2.5 p-2.5 rounded-lg border border-border bg-card">
+              {tasks.map((task, idx) => (
+                <div key={task.id || task._id || `task-${idx}`} className="flex items-start gap-2.5 p-2.5 rounded-lg border border-border bg-card">
                   <Clock className="size-4 text-amber-500 mt-0.5 shrink-0" />
                   <div className="space-y-0.5 min-w-0">
                     <p className="text-xs font-medium text-foreground">{task.title}</p>

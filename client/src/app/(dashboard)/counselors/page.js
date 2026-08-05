@@ -1,31 +1,56 @@
 "use client";
 
 import { useState } from "react";
-import { mockCounselorsData } from "@/data/counselors";
+import { useQuery } from "@tanstack/react-query";
+import { clientService } from "@/services/client.service";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { WidgetGrid } from "@/components/layout/WidgetGrid";
 import { FilterBar } from "@/components/common/FilterBar";
 import { ProfileCard } from "@/components/common/ProfileCard";
 import { EmptyIllustration } from "@/components/common/EmptyIllustration";
+import { LoadingSkeleton } from "@/components/layout/LoadingSkeleton";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Filter, Calendar, Star } from "lucide-react";
+import { Filter, Calendar } from "lucide-react";
+
+const SPECIALIZATION_OPTIONS = [
+  { value: "all", label: "All Specializations" },
+  { value: "stem", label: "STEM & Technology" },
+  { value: "psychology", label: "Psychology & Behavioral Science" },
+  { value: "business", label: "Business & Management" },
+  { value: "general", label: "General Career Development" },
+];
 
 export default function CounselorsPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [specializationFilter, setSpecializationFilter] = useState("all");
 
-  const { counselors, specializationOptions } = mockCounselorsData;
+  const { data: counselorsData, isLoading, isError, error, refetch } = useQuery({
+    queryKey: ["counselors-list"],
+    queryFn: async () => {
+      const res = await clientService.getClients({ limit: 50 });
+      // Filter clients or profiles associated with counselor assignment
+      const allItems = res?.data?.clients || res?.data || res?.clients || [];
+      return allItems;
+    },
+  });
 
-  const filteredCounselors = counselors.filter((counselor) => {
+  const rawCounselors = counselorsData || [];
+
+  const filteredCounselors = rawCounselors.filter((item) => {
+    const userObj = item.userId || item;
+    const name = `${userObj.firstName || ""} ${userObj.lastName || ""}`.trim() || item.name || "Counselor";
+    const spec = item.specialization || item.degree || "Career Guidance";
+    const bio = item.bio || item.notes || "";
+
     const matchesSearch =
-      counselor.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      counselor.specialization.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      counselor.bio.toLowerCase().includes(searchQuery.toLowerCase());
+      name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      spec.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      bio.toLowerCase().includes(searchQuery.toLowerCase());
 
     const matchesSpecialization =
       specializationFilter === "all" ||
-      counselor.specialization.toLowerCase().includes(specializationFilter.toLowerCase());
+      spec.toLowerCase().includes(specializationFilter.toLowerCase());
 
     return matchesSearch && matchesSpecialization;
   });
@@ -60,7 +85,7 @@ export default function CounselorsPage() {
                   <SelectValue placeholder="All Specializations" />
                 </SelectTrigger>
                 <SelectContent>
-                  {specializationOptions.map((opt) => (
+                  {SPECIALIZATION_OPTIONS.map((opt) => (
                     <SelectItem key={opt.value} value={opt.value}>
                       {opt.label}
                     </SelectItem>
@@ -72,44 +97,69 @@ export default function CounselorsPage() {
         ]}
       />
 
-      {/* Counselor Grid */}
-      {filteredCounselors.length > 0 ? (
-        <WidgetGrid cols={{ default: 1, md: 2 }} gap="gap-6">
-          {filteredCounselors.map((counselor) => (
-            <ProfileCard
-              key={counselor.id}
-              name={counselor.name}
-              initials={counselor.initials}
-              subtitle={counselor.specialization}
-              status={counselor.availabilityStatus}
-              statusLabel={counselor.availability}
-              metaItems={[
-                { label: "Experience", value: `${counselor.experienceYears} Years` },
-                {
-                  label: "Rating",
-                  value: `${counselor.rating} ⭐ (${counselor.reviewCount})`,
-                },
-              ]}
-              action={
-                <Button className="w-full font-semibold shadow" size="sm">
-                  <Calendar className="mr-2 size-4" />
-                  Book Session
-                </Button>
-              }
-            />
-          ))}
-        </WidgetGrid>
-      ) : (
+      {/* Loading State */}
+      {isLoading && <LoadingSkeleton cards={4} />}
+
+      {/* Error State */}
+      {!isLoading && isError && (
         <EmptyIllustration
-          iconName="Users"
-          title="No Counselors Found"
-          description="No career advisors matched your filter criteria. Try adjusting your search query."
-          actionLabel="Clear Filters"
-          onAction={() => {
-            setSearchQuery("");
-            setSpecializationFilter("all");
-          }}
+          iconName="AlertCircle"
+          title="Failed to Load Counselors"
+          description={error?.message || "An unexpected error occurred while fetching counselor profiles."}
+          actionLabel="Try Again"
+          onAction={() => refetch()}
         />
+      )}
+
+      {/* Success / Empty State */}
+      {!isLoading && !isError && (
+        filteredCounselors.length > 0 ? (
+          <WidgetGrid cols={{ default: 1, md: 2 }} gap="gap-6">
+            {filteredCounselors.map((counselor) => {
+              const userObj = counselor.userId || counselor;
+              const name = `${userObj.firstName || ""} ${userObj.lastName || ""}`.trim() || counselor.name || "Counselor";
+              const initials = name
+                .split(" ")
+                .map((n) => n[0])
+                .join("")
+                .substring(0, 2)
+                .toUpperCase();
+              const id = counselor._id || counselor.id || userObj._id;
+
+              return (
+                <ProfileCard
+                  key={id}
+                  name={name}
+                  initials={initials}
+                  subtitle={counselor.specialization || "Career Counselor"}
+                  status={counselor.status === "ACTIVE" ? "success" : "neutral"}
+                  statusLabel={counselor.status || "Verified"}
+                  metaItems={[
+                    { label: "Role", value: "Counselor Advisor" },
+                    { label: "Status", value: counselor.status || "Active" },
+                  ]}
+                  action={
+                    <Button className="w-full font-semibold shadow" size="sm">
+                      <Calendar className="mr-2 size-4" />
+                      Book Session
+                    </Button>
+                  }
+                />
+              );
+            })}
+          </WidgetGrid>
+        ) : (
+          <EmptyIllustration
+            iconName="Users"
+            title="No Counselors Found"
+            description="No career advisors matched your criteria."
+            actionLabel="Clear Filters"
+            onAction={() => {
+              setSearchQuery("");
+              setSpecializationFilter("all");
+            }}
+          />
+        )
       )}
     </div>
   );

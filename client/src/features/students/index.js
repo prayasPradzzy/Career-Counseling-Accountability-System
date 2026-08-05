@@ -1,17 +1,10 @@
-export { StudentTable } from "./components/StudentTable";
-export { StudentCard } from "./components/StudentCard";
-export { StudentProfileForm } from "./components/StudentProfileForm";
-export { AssignCounselorDialog } from "./components/AssignCounselorDialog";
-export { ProfileCompletion } from "./components/ProfileCompletion";
-export { GuardianCard } from "./components/GuardianCard";
-export { ConsentCard } from "./components/ConsentCard";
-export { StudentProfileHub } from "./components/StudentProfileHub";
-export {
-  useStudents,
-  useStudentProfile,
-  useCreateStudent,
-  useUpdateStudent,
-  useDeleteStudent,
-  useAssignCounselor,
-  useUpdateConsent,
-} from "./hooks/useStudents";
+export { default as StudentTable } from "./components/StudentTable";
+export { default as StudentCard } from "./components/StudentCard";
+export { default as StudentProfileForm } from "./components/StudentProfileForm";
+export { default as StudentProfileHub } from "./components/StudentProfileHub";
+export { default as AssignCounselorDialog } from "./components/AssignCounselorDialog";
+export { default as TransferOwnershipDialog } from "./components/TransferOwnershipDialog";
+export { default as GuardianCard } from "./components/GuardianCard";
+export { default as ConsentCard } from "./components/ConsentCard";
+
+export * from "./hooks/useStudents";

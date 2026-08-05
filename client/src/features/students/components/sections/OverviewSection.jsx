@@ -4,21 +4,49 @@ import { SectionCard } from "@/components/common/SectionCard";
 import { ProgressCard } from "@/components/common/ProgressCard";
 import { StatusBadge } from "@/components/common/StatusBadge";
 import { Badge } from "@/components/ui/badge";
-import { BookOpen, Calendar, FileText, Compass, Clock, CheckCircle2 } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import {
+  BookOpen,
+  Calendar,
+  FileText,
+  Compass,
+  Clock,
+  CheckCircle2,
+  ShieldCheck,
+  UserCheck,
+  Mail,
+  CalendarDays,
+} from "lucide-react";
 
-export function OverviewSection({ profile, onAssignCounselor, onToggleConsent }) {
+/**
+ * OverviewSection
+ * Overview tab of Student Profile.
+ * Displays read-only Assigned Counselor Card with: Name, Email, Verification Badge, Assignment Date.
+ * Transfer Student Ownership action is restricted to Administrators only.
+ */
+export function OverviewSection({ profile, onTransferOwnership, isAdmin = false }) {
   const user = profile?.userId || {};
   const fullName = `${user.firstName || ""} ${user.lastName || ""}`.trim() || "Unnamed Student";
   const counselor = profile?.assignedCounselorId;
+
   const counselorName = counselor
     ? typeof counselor === "object"
       ? `${counselor.firstName || ""} ${counselor.lastName || ""}`.trim() || counselor.email
       : counselor
-    : "Unassigned";
+    : "Unassigned Counselor";
+
+  const counselorEmail = counselor && typeof counselor === "object" ? counselor.email : null;
+  const assignmentDate = profile?.createdAt
+    ? new Date(profile.createdAt).toLocaleDateString("en-US", {
+        month: "short",
+        day: "numeric",
+        year: "numeric",
+      })
+    : "—";
 
   return (
     <div className="space-y-6">
-      {/* Top Grid: Completeness & Quick Summary Cards */}
+      {/* Top Grid: Completeness & Assigned Counselor Card */}
       <WidgetGrid cols={{ default: 1, lg: 2 }} gap="gap-6">
         <ProgressCard
           title="Profile Completeness"
@@ -28,26 +56,53 @@ export function OverviewSection({ profile, onAssignCounselor, onToggleConsent })
           note={profile?.completionPercentage >= 80 ? "High Completion" : "Action Required"}
         />
 
+        {/* Read-Only Assigned Counselor Card */}
         <SectionCard
           title="Assigned Guidance Counselor"
-          subtitle="Primary counselor taking ownership of guidance roadmap"
+          subtitle="Primary counselor owning this student's guidance roadmap"
           iconName="UserCheck"
-        >
-          <div className="flex items-center justify-between p-3.5 rounded-lg border border-border bg-muted/20 pt-1">
-            <div className="space-y-0.5">
-              <p className="font-semibold text-sm text-foreground">{counselorName}</p>
-              <p className="text-xs text-muted-foreground">
-                {counselor?.email ? counselor.email : "No counselor assigned yet"}
-              </p>
-            </div>
-            {onAssignCounselor && (
-              <button
-                onClick={onAssignCounselor}
-                className="text-xs font-semibold text-primary hover:underline"
+          action={
+            isAdmin && onTransferOwnership && (
+              <Button
+                variant="outline"
+                size="sm"
+                className="text-xs gap-1.5"
+                onClick={onTransferOwnership}
               >
-                Change Counselor
-              </button>
-            )}
+                <ShieldCheck className="size-3.5 text-primary" />
+                Transfer Ownership
+              </Button>
+            )
+          }
+        >
+          <div className="p-4 rounded-xl border border-border/80 bg-card space-y-3 pt-2">
+            <div className="flex items-center justify-between gap-2 flex-wrap">
+              <div>
+                <h4 className="font-bold text-sm text-foreground">{counselorName}</h4>
+                {counselorEmail && (
+                  <p className="text-xs text-muted-foreground flex items-center gap-1 mt-0.5">
+                    <Mail className="size-3" />
+                    {counselorEmail}
+                  </p>
+                )}
+              </div>
+
+              {/* Verification Badge */}
+              <Badge variant="outline" className="text-[11px] gap-1 bg-emerald-500/10 text-emerald-600 border-emerald-600/30">
+                <CheckCircle2 className="size-3 text-emerald-600" />
+                Verified Counselor
+              </Badge>
+            </div>
+
+            <div className="flex items-center gap-4 text-xs text-muted-foreground pt-2 border-t border-border/60">
+              <span className="flex items-center gap-1 font-medium">
+                <CalendarDays className="size-3.5 text-primary" />
+                Assigned: {assignmentDate}
+              </span>
+              <span className="text-[11px] text-muted-foreground italic">
+                {isAdmin ? "Admin can reassign ownership above" : "Counselor ownership active"}
+              </span>
+            </div>
           </div>
         </SectionCard>
       </WidgetGrid>
@@ -61,7 +116,7 @@ export function OverviewSection({ profile, onAssignCounselor, onToggleConsent })
           iconName="UserCircle"
           items={[
             { label: "Student Name", value: fullName },
-            { label: "Email Address", value: user.email },
+            { label: "Email Address", value: user.email || profile?.invitedEmail },
             { label: "Phone Number", value: profile?.phone || "Not provided" },
             {
               label: "Date of Birth",
@@ -115,7 +170,7 @@ export function OverviewSection({ profile, onAssignCounselor, onToggleConsent })
         >
           <div className="space-y-4 pt-1">
             <div>
-              <span className="text-xs text-muted-foreground block mb-1.5">Target Roles</span>
+              <span className="text-xs text-muted-foreground block mb-1.5 font-medium">Target Roles</span>
               {profile?.careerGoals && profile.careerGoals.length > 0 ? (
                 <div className="flex flex-wrap gap-1.5">
                   {profile.careerGoals.map((g, i) => (
@@ -128,7 +183,7 @@ export function OverviewSection({ profile, onAssignCounselor, onToggleConsent })
             </div>
 
             <div>
-              <span className="text-xs text-muted-foreground block mb-1.5">Key Skills</span>
+              <span className="text-xs text-muted-foreground block mb-1.5 font-medium">Key Skills</span>
               {profile?.skills && profile.skills.length > 0 ? (
                 <div className="flex flex-wrap gap-1.5">
                   {profile.skills.map((s, i) => (

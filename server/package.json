@@ -5,7 +5,8 @@
   "main": "src/server.js",
   "scripts": {
     "start": "node src/server.js",
-    "dev": "nodemon src/server.js"
+    "dev": "nodemon src/server.js",
+    "seed:ipip": "node src/database/seed-ipip-neo-120.js"
   },
   "keywords": [
     "career",

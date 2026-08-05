@@ -26,7 +26,7 @@ export function AuthProvider({ children }) {
         // Backend returns: { statusCode, data: { user }, message }
         return res?.data?.user || res?.user || null;
       } catch (err) {
-        if (err.status === 401) {
+        if (err.response?.status === 401 || err.status === 401) {
           return null;
         }
         throw err;

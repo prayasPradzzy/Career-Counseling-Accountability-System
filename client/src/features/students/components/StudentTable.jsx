@@ -11,14 +11,15 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { StatusBadge } from "@/components/common/StatusBadge";
 import { RoleBadge } from "@/components/common/RoleBadge";
 import { Button } from "@/components/ui/button";
-import { Eye, Trash2, UserCheck } from "lucide-react";
+import { Eye, Trash2, ShieldCheck } from "lucide-react";
 import { ROUTES } from "@/constants/routes";
 
 /**
  * StudentTable Component
  * Data table displaying list of registered students with status badges, counselor assignments, and action items.
+ * "Transfer Ownership" is strictly restricted to Administrators. Counselors cannot reassign students.
  */
-export function StudentTable({ students = [], onDelete, onAssignCounselor }) {
+export function StudentTable({ students = [], onDelete, onTransferOwnership, isAdmin = false }) {
   return (
     <div className="rounded-xl border border-border bg-card overflow-hidden shadow-xs">
       <Table>
@@ -64,7 +65,7 @@ export function StudentTable({ students = [], onDelete, onAssignCounselor }) {
                         {fullName}
                       </span>
                       <span className="text-xs text-muted-foreground block truncate">
-                        {user.email}
+                        {user.email || student.invitedEmail}
                       </span>
                     </div>
                   </div>
@@ -85,7 +86,7 @@ export function StudentTable({ students = [], onDelete, onAssignCounselor }) {
                   <div className="flex items-center gap-2 max-w-[100px]">
                     <div className="h-2 w-full bg-muted rounded-full overflow-hidden">
                       <div
-                        className="h-full bg-primary rounded-full"
+                        className="h-full bg-primary rounded-full transition-all duration-500"
                         style={{ width: `${student.completionPercentage || 0}%` }}
                       />
                     </div>
@@ -105,15 +106,16 @@ export function StudentTable({ students = [], onDelete, onAssignCounselor }) {
                 {/* Actions */}
                 <TableCell className="text-right">
                   <div className="flex items-center justify-end gap-1">
-                    {onAssignCounselor && (
+                    {/* Transfer Ownership — Admin Only */}
+                    {isAdmin && onTransferOwnership && (
                       <Button
                         variant="ghost"
                         size="icon"
-                        onClick={() => onAssignCounselor(student)}
-                        title="Assign Counselor"
-                        aria-label="Assign Counselor"
+                        onClick={() => onTransferOwnership(student)}
+                        title="Transfer Student Ownership (Admin Only)"
+                        aria-label="Transfer Student Ownership"
                       >
-                        <UserCheck className="size-4 text-muted-foreground hover:text-foreground" />
+                        <ShieldCheck className="size-4 text-muted-foreground hover:text-primary" />
                       </Button>
                     )}
 

@@ -12,6 +12,13 @@ export const API_ENDPOINTS = {
     CONSENT: (id) => `/clients/${id}/consent`,
     SESSIONS: (id) => `/clients/${id}/sessions`,
   },
+  CLIENTS: {
+    BASE: "/clients",
+    BY_ID: (id) => `/clients/${id}`,
+    ASSIGN_COUNSELOR: (id) => `/clients/${id}/counselor`,
+    CONSENT: (id) => `/clients/${id}/consent`,
+    SESSIONS: (id) => `/clients/${id}/sessions`,
+  },
 };
 
 export default API_ENDPOINTS;

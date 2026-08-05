@@ -24,9 +24,9 @@ export function CounselorDashboardView({ data }) {
     <div className="space-y-6">
       {/* 1. Counselor Operational Stat Cards Grid */}
       <WidgetGrid cols={{ default: 1, sm: 2, lg: 3 }}>
-        {stats.map((stat) => (
+        {stats.map((stat, idx) => (
           <StatCard
-            key={stat.id}
+            key={stat.id || stat._id || `stat-${idx}`}
             title={stat.label}
             value={stat.value}
             note={stat.note}
@@ -47,9 +47,9 @@ export function CounselorDashboardView({ data }) {
             iconName="Calendar"
           >
             <div className="space-y-3 pt-2">
-              {interviews.map((int) => (
+              {interviews.map((int, idx) => (
                 <div
-                  key={int.id}
+                  key={int.id || int._id || `int-${idx}`}
                   className="flex flex-col sm:flex-row sm:items-center justify-between p-3.5 rounded-lg border border-primary/20 bg-card gap-3"
                 >
                   <div className="space-y-1">
@@ -88,9 +88,9 @@ export function CounselorDashboardView({ data }) {
             }
           >
             <div className="space-y-3 pt-2">
-              {unassigned.map((st) => (
+              {unassigned.map((st, idx) => (
                 <div
-                  key={st.id}
+                  key={st.id || st._id || `st-${idx}`}
                   className="flex items-center justify-between p-3.5 rounded-lg border border-border bg-card"
                 >
                   <div className="space-y-0.5">
@@ -117,9 +117,9 @@ export function CounselorDashboardView({ data }) {
             iconName="BookOpen"
           >
             <div className="space-y-3 pt-2">
-              {pendingReviews.map((rev) => (
+              {pendingReviews.map((rev, idx) => (
                 <div
-                  key={rev.id}
+                  key={rev.id || rev._id || `rev-${idx}`}
                   className="flex items-center justify-between p-3.5 rounded-lg border border-border bg-card"
                 >
                   <div className="space-y-1">
@@ -143,9 +143,9 @@ export function CounselorDashboardView({ data }) {
             iconName="FileText"
           >
             <div className="space-y-3 pt-2">
-              {draftReports.map((dr) => (
+              {draftReports.map((dr, idx) => (
                 <div
-                  key={dr.id}
+                  key={dr.id || dr._id || `dr-${idx}`}
                   className="flex items-center justify-between p-3.5 rounded-lg border border-border bg-card"
                 >
                   <div className="space-y-0.5">
@@ -172,8 +172,8 @@ export function CounselorDashboardView({ data }) {
             iconName="ListTodo"
           >
             <div className="space-y-2.5 pt-2">
-              {tasks.map((task) => (
-                <div key={task.id} className="p-2.5 rounded-lg border border-border bg-card space-y-1">
+              {tasks.map((task, idx) => (
+                <div key={task.id || task._id || `task-${idx}`} className="p-2.5 rounded-lg border border-border bg-card space-y-1">
                   <div className="flex items-center justify-between">
                     <Badge variant="outline" className="text-[10px]">
                       {task.dueDate}
@@ -192,8 +192,8 @@ export function CounselorDashboardView({ data }) {
             iconName="Activity"
           >
             <div className="space-y-3 pt-2">
-              {activity.map((act) => (
-                <div key={act.id} className="p-2.5 rounded-lg border border-border bg-card space-y-1">
+              {activity.map((act, idx) => (
+                <div key={act.id || act._id || `act-${idx}`} className="p-2.5 rounded-lg border border-border bg-card space-y-1">
                   <div className="flex items-center justify-between">
                     <span className="font-semibold text-xs text-foreground">{act.studentName}</span>
                     <span className="text-[10px] text-muted-foreground">{act.timestamp}</span>

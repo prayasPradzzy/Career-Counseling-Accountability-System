@@ -58,6 +58,30 @@ export const assessmentAssignmentService = {
   },
 
   /**
+   * Counselor fetches all assignments with optional filters (statusGroup, category, studentId)
+   */
+  async getCounselorAssignments(filters = {}) {
+    const response = await api.get("/assessments/counselor-assignments", { params: filters });
+    return response.data;
+  },
+
+  /**
+   * Counselor fetches complete review detail (Session progress, Domain Scores, Facet Scores, Raw Responses)
+   */
+  async getAssignmentReviewDetail(assignmentId) {
+    const response = await api.get(`/assessments/assignments/${assignmentId}/review-detail`);
+    return response.data;
+  },
+
+  /**
+   * Counselor requests retake / rejects assignment
+   */
+  async rejectAssignment({ assignmentId, counselorNotes }) {
+    const response = await api.patch(`/assessments/assignments/${assignmentId}/reject`, { counselorNotes });
+    return response.data;
+  },
+
+  /**
    * Revoke / Delete Assignment
    */
   async deleteAssignment(assignmentId) {

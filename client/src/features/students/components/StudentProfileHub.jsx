@@ -16,6 +16,10 @@ import { GuardianCard } from "./GuardianCard";
 import { ConsentCard } from "./ConsentCard";
 import { SectionCard } from "@/components/common/SectionCard";
 import { Badge } from "@/components/ui/badge";
+import { AssignAssessmentDialog } from "./AssignAssessmentDialog";
+import { useStudentAssignments, useAssignAssessment } from "@/features/assessments/hooks/useAssessmentAssignments";
+import { useAuth } from "@/context/AuthContext";
+import { toast } from "sonner";
 import {
   LayoutDashboard,
   UserCircle,
@@ -31,6 +35,9 @@ import {
   Settings as SettingsIcon,
 } from "lucide-react";
 
+import { TransferOwnershipDialog } from "./TransferOwnershipDialog";
+import { useAssignCounselor } from "../hooks/useStudents";
+
 /**
  * StudentProfileHub Component
  * Central Hub Architecture for Student Profile.
@@ -38,14 +45,65 @@ import {
  */
 export function StudentProfileHub({
   profile,
-  onAssignCounselor,
   onToggleConsent,
   isUpdatingConsent = false,
 }) {
   const [activeTab, setActiveTab] = useState("overview");
+  const [assignAssessmentOpen, setAssignAssessmentOpen] = useState(false);
+  const [transferOwnershipOpen, setTransferOwnershipOpen] = useState(false);
+  const { user } = useAuth();
 
-  const user = profile?.userId || {};
-  const fullName = `${user.firstName || ""} ${user.lastName || ""}`.trim() || "Unnamed Student";
+  const studentUserId = profile?.userId?._id || profile?.userId;
+  const isCounselorOrAdmin = user?.role === "counselor" || user?.role === "admin";
+  const isAdmin = user?.role === "admin";
+
+  const transferCounselorMutation = useAssignCounselor();
+
+  const handleTransferCounselor = (counselorId) => {
+    const studentProfileId = profile._id || studentUserId;
+    transferCounselorMutation.mutate(
+      { id: studentProfileId, counselorId },
+      {
+        onSuccess: () => {
+          toast.success("Student ownership transferred successfully!");
+          setTransferOwnershipOpen(false);
+        },
+        onError: (err) => {
+          toast.error(err?.response?.data?.message || "Failed to transfer ownership.");
+        },
+      }
+    );
+  };
+
+  // Fetch real assignments for this student
+  const { data: assignmentsData } = useStudentAssignments(studentUserId);
+  const assignments = assignmentsData?.data?.assignments || [];
+
+  // Assign assessment mutation
+  const assignAssessmentMutation = useAssignAssessment();
+
+  const handleAssignAssessment = (formData) => {
+    assignAssessmentMutation.mutate(
+      {
+        studentId: studentUserId,
+        assessmentDefinitionId: formData.assessmentDefinitionId,
+        dueDate: formData.dueDate || undefined,
+        counselorNotes: formData.counselorNotes || "",
+      },
+      {
+        onSuccess: () => {
+          toast.success("Assessment assigned successfully!");
+          setAssignAssessmentOpen(false);
+        },
+        onError: (err) => {
+          toast.error(err?.response?.data?.message || "Failed to assign assessment.");
+        },
+      }
+    );
+  };
+
+  const userObj = profile?.userId || {};
+  const fullName = `${userObj.firstName || ""} ${userObj.lastName || ""}`.trim() || "Unnamed Student";
 
   return (
     <div className="space-y-6">
@@ -104,8 +162,8 @@ export function StudentProfileHub({
         <TabsContent value="overview" className="mt-4">
           <OverviewSection
             profile={profile}
-            onAssignCounselor={onAssignCounselor}
-            onToggleConsent={onToggleConsent}
+            onTransferOwnership={isAdmin ? () => setTransferOwnershipOpen(true) : undefined}
+            isAdmin={isAdmin}
           />
         </TabsContent>
 
@@ -117,7 +175,7 @@ export function StudentProfileHub({
             iconName="UserCircle"
             items={[
               { label: "Student Name", value: fullName },
-              { label: "Email Address", value: user.email },
+              { label: "Email Address", value: userObj.email },
               { label: "Phone Number", value: profile?.phone || "Not provided" },
               {
                 label: "Date of Birth",
@@ -126,7 +184,7 @@ export function StudentProfileHub({
                   : "Not provided",
               },
               { label: "Gender Identity", value: profile?.gender || "Not specified" },
-              { label: "Account Role", value: user.role || "student" },
+              { label: "Account Role", value: userObj.role || "student" },
             ]}
           />
         </TabsContent>
@@ -167,41 +225,52 @@ export function StudentProfileHub({
         <TabsContent value="counselor" className="mt-4">
           <SectionCard
             title="Assigned Guidance Counselor"
-            subtitle="Primary counselor taking ownership of guidance roadmap"
+            subtitle="Primary counselor owning this student's guidance roadmap"
             iconName="UserCheck"
             action={
-              onAssignCounselor && (
-                <button onClick={onAssignCounselor} className="text-xs font-semibold text-primary hover:underline">
-                  Assign / Reassign Counselor
+              isAdmin && (
+                <button onClick={() => setTransferOwnershipOpen(true)} className="text-xs font-semibold text-primary hover:underline">
+                  Transfer Student Ownership
                 </button>
               )
             }
           >
-            <div className="p-4 rounded-lg border border-border bg-card space-y-2 pt-1">
-              <div className="flex items-center justify-between">
-                <span className="font-semibold text-sm text-foreground">
-                  {profile?.assignedCounselorId
-                    ? typeof profile.assignedCounselorId === "object"
-                      ? `${profile.assignedCounselorId.firstName || ""} ${profile.assignedCounselorId.lastName || ""}`.trim() || profile.assignedCounselorId.email
-                      : profile.assignedCounselorId
-                    : "Unassigned"}
-                </span>
-                <Badge variant="outline" className="text-xs">
-                  {profile?.assignedCounselorId ? "Active Assigned Counselor" : "Pending Assignment"}
+            <div className="p-4 rounded-xl border border-border/80 bg-card space-y-3 pt-2">
+              <div className="flex items-center justify-between gap-2 flex-wrap">
+                <div>
+                  <h4 className="font-bold text-sm text-foreground">
+                    {profile?.assignedCounselorId
+                      ? typeof profile.assignedCounselorId === "object"
+                        ? `${profile.assignedCounselorId.firstName || ""} ${profile.assignedCounselorId.lastName || ""}`.trim() || profile.assignedCounselorId.email
+                        : profile.assignedCounselorId
+                      : "Unassigned Counselor"}
+                  </h4>
+                  {profile?.assignedCounselorId?.email && (
+                    <p className="text-xs text-muted-foreground mt-0.5">
+                      Contact Email: {profile.assignedCounselorId.email}
+                    </p>
+                  )}
+                </div>
+
+                <Badge variant="outline" className="text-[11px] gap-1 bg-emerald-500/10 text-emerald-600 border-emerald-600/30">
+                  Verified Counselor
                 </Badge>
               </div>
-              {profile?.assignedCounselorId?.email && (
-                <p className="text-xs text-muted-foreground">
-                  Contact Email: {profile.assignedCounselorId.email}
-                </p>
-              )}
+
+              <div className="flex items-center justify-between text-xs text-muted-foreground pt-2 border-t border-border/60">
+                <span>Assigned: {profile?.createdAt ? new Date(profile.createdAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }) : "—"}</span>
+                <span className="text-[11px] italic">{isAdmin ? "Admin ownership transfer available" : "Active Counselor Ownership"}</span>
+              </div>
             </div>
           </SectionCard>
         </TabsContent>
 
-        {/* 6. Assessments & Scores Tab */}
+        {/* 6. Assessments & Scores Tab — Real assignments from backend */}
         <TabsContent value="assessments" className="mt-4 space-y-6">
-          <AssessmentHistorySection />
+          <AssessmentHistorySection
+            assignments={assignments}
+            onAssignAssessment={isCounselorOrAdmin ? () => setAssignAssessmentOpen(true) : undefined}
+          />
           <AssessmentScoresSection />
         </TabsContent>
 
@@ -231,6 +300,28 @@ export function StudentProfileHub({
           <ProgressTimelineSection profile={profile} />
         </TabsContent>
       </Tabs>
+
+      {/* Assign Assessment Dialog (Counselor/Admin only) */}
+      {isCounselorOrAdmin && (
+        <AssignAssessmentDialog
+          open={assignAssessmentOpen}
+          onOpenChange={setAssignAssessmentOpen}
+          onAssign={handleAssignAssessment}
+          isAssigning={assignAssessmentMutation.isPending}
+          studentName={fullName}
+        />
+      )}
+
+      {/* Transfer Student Ownership Dialog (Admin only) */}
+      {isAdmin && (
+        <TransferOwnershipDialog
+          open={transferOwnershipOpen}
+          onOpenChange={setTransferOwnershipOpen}
+          onTransfer={handleTransferCounselor}
+          isTransferring={transferCounselorMutation.isPending}
+          studentName={fullName}
+        />
+      )}
     </div>
   );
 }

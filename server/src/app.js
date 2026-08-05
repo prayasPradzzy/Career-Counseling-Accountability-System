@@ -60,11 +60,11 @@ if (process.env.NODE_ENV === "development") {
   app.use(morgan("combined"));
 }
 
-// 4. Parse JSON request bodies (limit to 10kb to prevent abuse)
-app.use(express.json({ limit: "10kb" }));
+// 4. Parse JSON request bodies
+app.use(express.json({ limit: "10mb" }));
 
 // 5. Parse URL-encoded form data
-app.use(express.urlencoded({ extended: true, limit: "10kb" }));
+app.use(express.urlencoded({ extended: true, limit: "10mb" }));
 
 // 6. Parse cookies from request headers
 app.use(cookieParser());
@@ -72,6 +72,8 @@ app.use(cookieParser());
 const authRoutes = require("./modules/auth/auth.routes");
 const clientRoutes = require("./modules/clients/client.routes");
 const assessmentAssignmentRoutes = require("./modules/assessments/assessmentAssignment.routes");
+const assessmentSessionRoutes = require("./modules/assessments/assessmentSession.routes");
+const assessmentDefinitionRoutes = require("./modules/assessments/assessmentDefinition.routes");
 const errorHandler = require("./shared/middleware/error.middleware");
 
 // ============================================================
@@ -91,6 +93,8 @@ app.get("/api/v1/health", (req, res) => {
 // Mount feature routes
 app.use("/api/v1/auth", authRoutes);
 app.use("/api/v1/clients", clientRoutes);
+app.use("/api/v1/assessment-definitions", assessmentDefinitionRoutes);
+app.use("/api/v1/assessments/sessions", assessmentSessionRoutes);
 app.use("/api/v1/assessments", assessmentAssignmentRoutes);
 
 // ============================================================

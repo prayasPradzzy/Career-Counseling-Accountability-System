@@ -22,6 +22,16 @@ const errorHandler = (err, req, res, next) => {
     error = new ApiError(404, message);
   }
 
+  // Handle JWT Invalid Token Error
+  if (err.name === "JsonWebTokenError") {
+    error = new ApiError(401, "Invalid token. Please log in again.");
+  }
+
+  // Handle JWT Expired Token Error
+  if (err.name === "TokenExpiredError") {
+    error = new ApiError(401, "Your token has expired. Please log in again.");
+  }
+
   // Default to 500 server error
   const statusCode = error.statusCode || 500;
   const message = error.message || "Internal Server Error";

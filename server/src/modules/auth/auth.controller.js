@@ -31,7 +31,7 @@ class AuthController {
       maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days in milliseconds (must match JWT_EXPIRES_IN)
     });
 
-    res.status(200).json(new ApiResponse(200, { user }, "Login successful"));
+    res.status(200).json(new ApiResponse(200, { user, token }, "Login successful"));
   });
 
   getMe = catchAsync(async (req, res) => {

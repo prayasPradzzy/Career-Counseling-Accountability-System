@@ -5,10 +5,11 @@ import {
   useStudents,
   useDeleteStudent,
   useAssignCounselor,
-  AssignCounselorDialog,
+  TransferOwnershipDialog,
   StudentTable,
   StudentCard,
 } from "@/features/students";
+import { useAuth } from "@/context/AuthContext";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { FilterBar } from "@/components/common/FilterBar";
 import { WidgetGrid } from "@/components/layout/WidgetGrid";
@@ -24,6 +25,9 @@ import { toast } from "sonner";
 import { STUDENT_STATUS_FILTER_OPTIONS } from "@/constants/studentStatus.constants";
 
 export default function StudentsPage() {
+  const { user } = useAuth();
+  const isAdmin = user?.role === "admin";
+
   const [viewMode, setViewMode] = useState("table"); // "table" | "grid"
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
@@ -32,8 +36,8 @@ export default function StudentsPage() {
 
   // Selected student for delete/archive dialog
   const [studentToDelete, setStudentToDelete] = useState(null);
-  // Selected student for counselor assignment dialog
-  const [studentToAssign, setStudentToAssign] = useState(null);
+  // Selected student for ownership transfer dialog (Admin only)
+  const [studentToTransfer, setStudentToTransfer] = useState(null);
 
   // React Query Fetching
   const { data, isLoading, isError, error } = useStudents({
@@ -63,19 +67,19 @@ export default function StudentsPage() {
     });
   };
 
-  const handleAssignConfirm = (counselorId) => {
-    if (!studentToAssign) return;
+  const handleTransferConfirm = (counselorId) => {
+    if (!studentToTransfer) return;
 
-    const targetId = studentToAssign.id || studentToAssign._id;
+    const targetId = studentToTransfer.id || studentToTransfer._id;
     assignCounselorMutation.mutate(
       { id: targetId, counselorId },
       {
         onSuccess: () => {
-          toast.success("Counselor assigned successfully!");
-          setStudentToAssign(null);
+          toast.success("Student ownership transferred successfully!");
+          setStudentToTransfer(null);
         },
         onError: (err) => {
-          toast.error(err.response?.data?.message || "Failed to assign counselor");
+          toast.error(err.response?.data?.message || "Failed to transfer ownership");
         },
       }
     );
@@ -87,7 +91,7 @@ export default function StudentsPage() {
     <div className="space-y-6">
       <PageHeader
         title="Students Directory"
-        subtitle="Manage student registrations, counselor assignments, and guidance completeness."
+        subtitle="Manage student registrations, counselor guidance, and lifecycle progression."
         actions={[
           {
             id: "register-student-btn",
@@ -192,7 +196,8 @@ export default function StudentsPage() {
             <StudentTable
               students={students}
               onDelete={(s) => setStudentToDelete(s)}
-              onAssignCounselor={(s) => setStudentToAssign(s)}
+              onTransferOwnership={isAdmin ? (s) => setStudentToTransfer(s) : undefined}
+              isAdmin={isAdmin}
             />
           ) : (
             <WidgetGrid cols={{ default: 1, md: 2, lg: 3 }}>
@@ -237,11 +242,11 @@ export default function StudentsPage() {
       ) : (
         <EmptyIllustration
           iconName="GraduationCap"
-          title="No Students Found"
+          title={hasActiveFilters ? "No Students Found" : "No Students Yet"}
           description={
             hasActiveFilters
               ? "No student records matched your filter criteria."
-              : "No students registered yet. Click below to register your first student."
+              : "Invite your first student"
           }
           actionLabel={hasActiveFilters ? "Clear Filters" : "Register Student"}
           actionHref={hasActiveFilters ? undefined : ROUTES.STUDENT_NEW}
@@ -256,13 +261,20 @@ export default function StudentsPage() {
         />
       )}
 
-      {/* Assign Counselor Modal Dialog */}
-      <AssignCounselorDialog
-        open={Boolean(studentToAssign)}
-        onOpenChange={(open) => !open && setStudentToAssign(null)}
-        onAssign={handleAssignConfirm}
-        isAssigning={assignCounselorMutation.isPending}
-      />
+      {/* Transfer Ownership Dialog (Admin Only) */}
+      {isAdmin && (
+        <TransferOwnershipDialog
+          open={Boolean(studentToTransfer)}
+          onOpenChange={(open) => !open && setStudentToTransfer(null)}
+          onTransfer={handleTransferConfirm}
+          isTransferring={assignCounselorMutation.isPending}
+          studentName={
+            studentToTransfer?.userId
+              ? `${studentToTransfer.userId.firstName || ""} ${studentToTransfer.userId.lastName || ""}`.trim()
+              : "Student"
+          }
+        />
+      )}
 
       {/* Archive / Delete Confirmation Dialog */}
       <DeleteDialog

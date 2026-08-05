@@ -25,7 +25,7 @@ class AssessmentAssignmentService {
 
     // Verify Assessment Definition exists and is active
     const definition = await AssessmentDefinition.findById(assessmentDefinitionId);
-    if (!definition || !definition.isActive) {
+    if (!definition || definition.status !== "active") {
       throw new ApiError(404, "Assessment definition not found or inactive.");
     }
 
@@ -57,7 +57,7 @@ class AssessmentAssignmentService {
     return await AssessmentAssignment.findById(assignment._id)
       .populate("studentId", "firstName lastName email")
       .populate("counselorId", "firstName lastName email")
-      .populate("assessmentDefinitionId", "title code category estimatedTimeMinutes description");
+      .populate("assessmentDefinitionId", "title code category estimatedDuration description");
   }
 
   /**
@@ -71,7 +71,7 @@ class AssessmentAssignmentService {
 
     const assignments = await AssessmentAssignment.find({ studentId })
       .populate("counselorId", "firstName lastName email")
-      .populate("assessmentDefinitionId", "title code category estimatedTimeMinutes description")
+      .populate("assessmentDefinitionId", "title code category estimatedDuration description")
       .populate("unlocksNextAssessmentId", "title code category")
       .sort({ assignedAt: -1 });
 
@@ -84,7 +84,7 @@ class AssessmentAssignmentService {
   async getMyAssignments(studentUser) {
     const assignments = await AssessmentAssignment.find({ studentId: studentUser._id })
       .populate("counselorId", "firstName lastName email")
-      .populate("assessmentDefinitionId", "title code category estimatedTimeMinutes description")
+      .populate("assessmentDefinitionId", "title code category estimatedDuration description")
       .sort({ assignedAt: -1 });
 
     return assignments;
@@ -147,7 +147,7 @@ class AssessmentAssignmentService {
 
     return await AssessmentAssignment.findById(assignment._id)
       .populate("counselorId", "firstName lastName email")
-      .populate("assessmentDefinitionId", "title code category estimatedTimeMinutes description");
+      .populate("assessmentDefinitionId", "title code category estimatedDuration description");
   }
 
   /**
@@ -181,7 +181,7 @@ class AssessmentAssignmentService {
 
     return await AssessmentAssignment.findById(assignment._id)
       .populate("counselorId", "firstName lastName email")
-      .populate("assessmentDefinitionId", "title code category estimatedTimeMinutes description");
+      .populate("assessmentDefinitionId", "title code category estimatedDuration description");
   }
 
   /**
@@ -264,7 +264,203 @@ class AssessmentAssignmentService {
   }
 
   /**
-   * 8. Revoke / Delete Assignment
+   * 8. Counselor/Admin fetches list of all assignments with status & category filtering
+   */
+  async getCounselorAssignments(requestingUser, filters = {}) {
+    if (requestingUser.role !== "counselor" && requestingUser.role !== "admin") {
+      throw new ApiError(403, "Only counselors and administrators can access counselor assignment lists.");
+    }
+
+    const query = {};
+
+    // Counselor scope
+    if (requestingUser.role === "counselor") {
+      query.counselorId = requestingUser._id;
+    }
+
+    // Specific student filter
+    if (filters.studentId) {
+      query.studentId = filters.studentId;
+    }
+
+    // Category filter
+    if (filters.category) {
+      query.category = filters.category;
+    }
+
+    // Status filter / Status Grouping filter
+    if (filters.status) {
+      query.status = filters.status;
+    } else if (filters.statusGroup) {
+      switch (filters.statusGroup.toLowerCase()) {
+        case "pending":
+          query.status = { $in: [ASSIGNMENT_STATUS.ASSIGNED, ASSIGNMENT_STATUS.SCHEDULED] };
+          break;
+        case "submitted":
+        case "completed":
+          query.status = ASSIGNMENT_STATUS.COMPLETED;
+          break;
+        case "reviewed":
+        case "under_review":
+          query.status = ASSIGNMENT_STATUS.UNDER_REVIEW;
+          break;
+        case "approved":
+          query.status = ASSIGNMENT_STATUS.APPROVED;
+          break;
+        case "rejected":
+        case "retake":
+          query.status = ASSIGNMENT_STATUS.REJECTED;
+          break;
+        default:
+          break;
+      }
+    }
+
+    const assignments = await AssessmentAssignment.find(query)
+      .populate("studentId", "firstName lastName email")
+      .populate("counselorId", "firstName lastName email")
+      .populate("assessmentDefinitionId", "title code category estimatedDuration description")
+      .sort({ assignedAt: -1 });
+
+    // Attach active/completed session progress summary to each assignment
+    const assignmentIds = assignments.map((a) => a._id);
+    const AssessmentSession = require("./assessmentSession.model");
+    const sessions = await AssessmentSession.find({ assignmentId: { $in: assignmentIds } });
+
+    const sessionMap = new Map();
+    for (const s of sessions) {
+      sessionMap.set(s.assignmentId.toString(), s);
+    }
+
+    return assignments.map((a) => {
+      const aObj = a.toObject();
+      const s = sessionMap.get(a._id.toString());
+      aObj.sessionSummary = s
+        ? {
+            sessionId: s._id,
+            status: s.status,
+            progress: s.progress,
+            timeSpentSeconds: s.timeSpentSeconds,
+            startedAt: s.startedAt,
+            submittedAt: s.submittedAt,
+          }
+        : null;
+      return aObj;
+    });
+  }
+
+  /**
+   * 9. Counselor requests retake / rejects assignment
+   */
+  async rejectAssignment(assignmentId, counselorNotes, requestingUser) {
+    if (requestingUser.role !== "counselor" && requestingUser.role !== "admin") {
+      throw new ApiError(403, "Only counselors can reject or request retakes.");
+    }
+
+    const assignment = await AssessmentAssignment.findById(assignmentId);
+    if (!assignment) {
+      throw new ApiError(404, "Assessment assignment not found.");
+    }
+
+    assignment.status = ASSIGNMENT_STATUS.REJECTED;
+    if (counselorNotes) {
+      assignment.counselorNotes = counselorNotes;
+    }
+    await assignment.save();
+
+    // Reset session for retake
+    const AssessmentSession = require("./assessmentSession.model");
+    await AssessmentSession.deleteMany({ assignmentId: assignment._id });
+
+    return await AssessmentAssignment.findById(assignment._id)
+      .populate("studentId", "firstName lastName email")
+      .populate("counselorId", "firstName lastName email")
+      .populate("assessmentDefinitionId", "title code category");
+  }
+
+  /**
+   * 10. Get Full Assignment Review Details (Metadata, Session, Score, Raw Responses)
+   */
+  async getAssignmentReviewDetail(assignmentId, requestingUser) {
+    if (requestingUser.role !== "counselor" && requestingUser.role !== "admin") {
+      throw new ApiError(403, "Access denied. Counselor permissions required.");
+    }
+
+    const assignment = await AssessmentAssignment.findById(assignmentId)
+      .populate("studentId", "firstName lastName email")
+      .populate("counselorId", "firstName lastName email")
+      .populate("assessmentDefinitionId", "title code category estimatedDuration description instructions scale metadata");
+
+    if (!assignment) {
+      throw new ApiError(404, "Assessment assignment not found.");
+    }
+
+    const AssessmentSession = require("./assessmentSession.model");
+    const AssessmentScore = require("./assessmentScore.model");
+    const AssessmentResponse = require("./assessmentResponse.model");
+    const AssessmentQuestion = require("./assessmentQuestion.model");
+    const AssessmentOption = require("./assessmentOption.model");
+
+    const session = await AssessmentSession.findOne({ assignmentId: assignment._id });
+
+    let score = null;
+    let responseDoc = null;
+    let rawResponsesMapped = [];
+
+    if (session) {
+      score = await AssessmentScore.findOne({ sessionId: session._id });
+      responseDoc = await AssessmentResponse.findOne({ sessionId: session._id });
+
+      if (responseDoc && responseDoc.responses && responseDoc.responses.length > 0) {
+        // Fetch questions and options to build raw response map
+        const questions = await AssessmentQuestion.find({
+          assessmentId: assignment.assessmentDefinitionId._id,
+        }).sort({ questionNumber: 1 });
+
+        const questionIds = questions.map((q) => q._id);
+        const options = await AssessmentOption.find({ questionId: { $in: questionIds } });
+
+        const optionMap = new Map();
+        for (const opt of options) {
+          const key = `${opt.questionId.toString()}:::${opt.value}`;
+          optionMap.set(key, opt.label);
+        }
+
+        const questionMap = new Map();
+        for (const q of questions) {
+          questionMap.set(q._id.toString(), q);
+        }
+
+        rawResponsesMapped = responseDoc.responses.map((resp) => {
+          const qObj = questionMap.get(resp.questionId.toString());
+          const optionLabel = optionMap.get(`${resp.questionId.toString()}:::${resp.selectedValue}`) || null;
+
+          return {
+            questionId: resp.questionId,
+            questionNumber: resp.questionNumber || (qObj ? qObj.questionNumber : 0),
+            questionText: qObj ? qObj.text : "Question",
+            domain: qObj ? qObj.domain : "",
+            facet: qObj ? qObj.facet : "",
+            reverseScored: qObj ? qObj.reverseScored : false,
+            selectedValue: resp.selectedValue,
+            selectedLabel: optionLabel,
+            responseTimeMs: resp.responseTimeMs,
+            answeredAt: resp.answeredAt,
+          };
+        });
+      }
+    }
+
+    return {
+      assignment,
+      session,
+      score,
+      rawResponses: rawResponsesMapped,
+    };
+  }
+
+  /**
+   * 11. Revoke / Delete Assignment
    */
   async deleteAssignment(assignmentId, requestingUser) {
     if (requestingUser.role !== "counselor" && requestingUser.role !== "admin") {

@@ -2,25 +2,61 @@
 
 import { useState } from "react";
 import { useAuth } from "@/context/AuthContext";
-import { mockSettingsData } from "@/data/settings";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { SettingsCard } from "@/components/common/SettingsCard";
 import { FormSection, FormRow, FormActions } from "@/components/common/FormLayout";
+import { LoadingSkeleton } from "@/components/layout/LoadingSkeleton";
+import { EmptyIllustration } from "@/components/common/EmptyIllustration";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { User, Palette, Bell, Shield, Key, Link as LinkIcon, AlertTriangle, Save } from "lucide-react";
+import { toast } from "sonner";
+
+const THEME_OPTIONS = [
+  { value: "system", label: "System Default" },
+  { value: "light", label: "Light Mode" },
+  { value: "dark", label: "Dark Mode" },
+];
+
+const PRIVACY_OPTIONS = [
+  { value: "assigned-counselor", label: "Assigned Counselor Only" },
+  { value: "all-counselors", label: "All Counselors" },
+  { value: "private", label: "Strictly Private" },
+];
 
 export default function SettingsPage() {
-  const { user } = useAuth();
-  const { themeOptions, privacyOptions, defaultPreferences, connectedAccounts } = mockSettingsData;
+  const { user, isLoading } = useAuth();
 
-  const [theme, setTheme] = useState(defaultPreferences.theme);
-  const [emailNotifications, setEmailNotifications] = useState(defaultPreferences.emailNotifications);
-  const [sessionReminders, setSessionReminders] = useState(defaultPreferences.sessionReminders);
+  const [theme, setTheme] = useState("system");
+  const [emailNotifications, setEmailNotifications] = useState(true);
+  const [sessionReminders, setSessionReminders] = useState(true);
+  const [profileVisibility, setProfileVisibility] = useState("assigned-counselor");
+
+  if (isLoading) {
+    return (
+      <div className="space-y-6">
+        <PageHeader title="Settings" subtitle="Loading preferences..." />
+        <LoadingSkeleton cards={3} />
+      </div>
+    );
+  }
+
+  if (!user) {
+    return (
+      <div className="space-y-6">
+        <PageHeader title="Settings" subtitle="Manage your application preferences." />
+        <EmptyIllustration
+          iconName="AlertCircle"
+          title="Account Information Unavailable"
+          description="Please log in to manage your settings."
+        />
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -82,7 +118,7 @@ export default function SettingsPage() {
             </FormRow>
 
             <FormActions>
-              <Button size="sm" className="gap-2">
+              <Button size="sm" className="gap-2" onClick={() => toast.success("Account settings updated.")}>
                 <Save className="size-4" />
                 Save Account Changes
               </Button>
@@ -103,7 +139,7 @@ export default function SettingsPage() {
                   <SelectValue placeholder="Select theme" />
                 </SelectTrigger>
                 <SelectContent>
-                  {themeOptions.map((opt) => (
+                  {THEME_OPTIONS.map((opt) => (
                     <SelectItem key={opt.value} value={opt.value}>
                       {opt.label}
                     </SelectItem>
@@ -159,12 +195,12 @@ export default function SettingsPage() {
           >
             <div className="space-y-2 max-w-sm">
               <Label htmlFor="privacy-visibility">Profile Visibility</Label>
-              <Select defaultValue={defaultPreferences.profileVisibility}>
+              <Select value={profileVisibility} onValueChange={setProfileVisibility}>
                 <SelectTrigger id="privacy-visibility">
                   <SelectValue placeholder="Select visibility" />
                 </SelectTrigger>
                 <SelectContent>
-                  {privacyOptions.map((opt) => (
+                  {PRIVACY_OPTIONS.map((opt) => (
                     <SelectItem key={opt.value} value={opt.value}>
                       {opt.label}
                     </SelectItem>
@@ -197,7 +233,7 @@ export default function SettingsPage() {
             </div>
 
             <FormActions>
-              <Button size="sm">Update Password</Button>
+              <Button size="sm" onClick={() => toast.success("Password update requested.")}>Update Password</Button>
             </FormActions>
           </FormSection>
         </TabsContent>
@@ -210,18 +246,13 @@ export default function SettingsPage() {
               <CardDescription>Manage third-party integrations (Google Calendar, LinkedIn).</CardDescription>
             </CardHeader>
             <CardContent className="space-y-3">
-              {connectedAccounts.map((acc) => (
-                <SettingsCard
-                  key={acc.id}
-                  title={acc.name}
-                  description={acc.description}
-                  iconName="FileText"
-                >
-                  <Button variant="outline" size="sm">
-                    {acc.connected ? "Disconnect" : "Connect"}
-                  </Button>
-                </SettingsCard>
-              ))}
+              <SettingsCard
+                title="Google Calendar"
+                description="Sync session appointments with your Google Calendar."
+                iconName="FileText"
+              >
+                <Button variant="outline" size="sm">Connect</Button>
+              </SettingsCard>
             </CardContent>
           </Card>
         </TabsContent>

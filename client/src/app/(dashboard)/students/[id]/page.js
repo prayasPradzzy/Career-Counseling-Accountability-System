@@ -1,13 +1,10 @@
 "use client";
 
 import { use } from "react";
-import { useState } from "react";
 import { useRouter } from "next/navigation";
 import {
   useStudentProfile,
   useUpdateConsent,
-  useAssignCounselor,
-  AssignCounselorDialog,
 } from "@/features/students";
 import { StudentProfileHub } from "@/features/students/components/StudentProfileHub";
 import { PageHeader } from "@/components/layout/PageHeader";
@@ -20,11 +17,8 @@ export default function StudentDetailPage({ params: paramsPromise }) {
   const studentId = params.id;
   const router = useRouter();
 
-  const [assignDialogOpen, setAssignDialogOpen] = useState(false);
-
   const { data, isLoading, isError, error } = useStudentProfile(studentId);
   const updateConsentMutation = useUpdateConsent();
-  const assignCounselorMutation = useAssignCounselor();
 
   const profile = data?.data?.profile;
 
@@ -47,21 +41,6 @@ export default function StudentDetailPage({ params: paramsPromise }) {
         },
         onError: (err) => {
           toast.error(err.response?.data?.message || "Failed to update consent status");
-        },
-      }
-    );
-  };
-
-  const handleAssignCounselor = (counselorId) => {
-    assignCounselorMutation.mutate(
-      { id: studentId, counselorId },
-      {
-        onSuccess: () => {
-          toast.success("Counselor assigned successfully!");
-          setAssignDialogOpen(false);
-        },
-        onError: (err) => {
-          toast.error(err.response?.data?.message || "Failed to assign counselor");
         },
       }
     );
@@ -98,17 +77,8 @@ export default function StudentDetailPage({ params: paramsPromise }) {
     <div className="space-y-6">
       <StudentProfileHub
         profile={profile}
-        onAssignCounselor={() => setAssignDialogOpen(true)}
         onToggleConsent={handleToggleConsent}
         isUpdatingConsent={updateConsentMutation.isPending}
-      />
-
-      {/* Assign Counselor Modal Dialog */}
-      <AssignCounselorDialog
-        open={assignDialogOpen}
-        onOpenChange={setAssignDialogOpen}
-        onAssign={handleAssignCounselor}
-        isAssigning={assignCounselorMutation.isPending}
       />
     </div>
   );

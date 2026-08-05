@@ -82,6 +82,33 @@ export function useApproveAssignment() {
   });
 }
 
+export function useCounselorAssignments(filters = {}) {
+  return useQuery({
+    queryKey: [...ASSIGNMENT_KEYS.all, "counselor", filters],
+    queryFn: () => assessmentAssignmentService.getCounselorAssignments(filters),
+  });
+}
+
+export function useAssignmentReviewDetail(assignmentId) {
+  return useQuery({
+    queryKey: [...ASSIGNMENT_KEYS.all, "review-detail", assignmentId],
+    queryFn: () => assessmentAssignmentService.getAssignmentReviewDetail(assignmentId),
+    enabled: Boolean(assignmentId),
+  });
+}
+
+export function useRejectAssignment() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({ assignmentId, counselorNotes }) =>
+      assessmentAssignmentService.rejectAssignment({ assignmentId, counselorNotes }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ASSIGNMENT_KEYS.all });
+    },
+  });
+}
+
 export function useDeleteAssignment() {
   const queryClient = useQueryClient();
 

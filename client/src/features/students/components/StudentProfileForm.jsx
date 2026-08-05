@@ -10,14 +10,6 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Save, Loader2, UserCheck } from "lucide-react";
 
-// Mock student accounts for demonstration selection
-const MOCK_REGISTERED_STUDENTS = [
-  { id: "65a111111111111111111111", name: "Alex Johnson", email: "alex.johnson@student.edu" },
-  { id: "65a222222222222222222222", name: "Priya Sharma", email: "priya.sharma@student.edu" },
-  { id: "65a333333333333333333333", name: "Rohan Patel", email: "rohan.patel@student.edu" },
-  { id: "65a444444444444444444444", name: "Samantha Lee", email: "samantha.lee@student.edu" },
-];
-
 const studentFormSchema = z.object({
   userId: z.string().min(1, "Please select a registered student account"),
   phone: z.string().optional(),
@@ -39,7 +31,7 @@ export function StudentProfileForm({
   onSubmit,
   isSubmitting = false,
   isEditMode = false,
-  availableStudents = MOCK_REGISTERED_STUDENTS,
+  availableStudents = [],
 }) {
   const {
     register,

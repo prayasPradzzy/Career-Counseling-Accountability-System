@@ -1,13 +1,15 @@
 "use client";
 
 import { useAuth } from "@/context/AuthContext";
-import { mockProfileData } from "@/data/profile";
+import { useQuery } from "@tanstack/react-query";
+import { clientService } from "@/services/client.service";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { WidgetGrid } from "@/components/layout/WidgetGrid";
 import { InfoCard } from "@/components/common/InfoCard";
 import { RoleBadge } from "@/components/common/RoleBadge";
 import { StatusBadge } from "@/components/common/StatusBadge";
 import { SectionCard } from "@/components/common/SectionCard";
+import { LoadingSkeleton } from "@/components/layout/LoadingSkeleton";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -15,29 +17,67 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Edit3, Mail } from "lucide-react";
 
 export default function ProfilePage() {
-  const { user } = useAuth();
+  const { user, isLoading: authLoading } = useAuth();
+
+  const { data: profileRes, isLoading: profileLoading } = useQuery({
+    queryKey: ["client-profile-me", user?._id],
+    queryFn: async () => {
+      try {
+        const res = await clientService.getClientProfile(user?._id);
+        return res;
+      } catch (err) {
+        // Return empty object gracefully if user is counselor/admin or has no student profile yet
+        return {};
+      }
+    },
+    enabled: Boolean(user?._id),
+  });
+
+  const isLoading = authLoading || (Boolean(user?._id) && profileLoading);
+
+  const profile = profileRes?.data?.profile || profileRes?.data?.client || profileRes?.profile || profileRes?.client || profileRes?.data || {};
 
   const userInitials =
     user?.firstName && user?.lastName
       ? `${user.firstName[0]}${user.lastName[0]}`.toUpperCase()
       : "U";
 
-  const { basicInfo, academicInfo, careerGoals, accountInfo, completionPercentage } = mockProfileData;
+  const completionPercentage = profile?.completionPercentage || (user ? 100 : 0);
+
+  const phone = profile?.phone || "Not Provided";
+  const gender = profile?.gender || "Not Specified";
+  const location = profile?.location || "Not Provided";
+
+  // Academic History
+  const educationList = Array.isArray(profile?.education) ? profile.education : [];
+  const primaryEdu = educationList[0] || {};
+  const institution = primaryEdu.institution || "Not Provided";
+  const degree = primaryEdu.degree || "Not Provided";
+  const fieldOfStudy = primaryEdu.fieldOfStudy || "Not Provided";
+  const graduationYear = primaryEdu.endYear ? String(primaryEdu.endYear) : "Not Specified";
+
+  // Career Aspirations
+  const targetRoles = Array.isArray(profile?.careerGoals) ? profile.careerGoals : profile?.careerGoals?.targetRoles || [];
+  const keySkills = Array.isArray(profile?.skills) ? profile.skills : [];
+
+  const createdAtDate = user?.createdAt
+    ? new Date(user.createdAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })
+    : "Active Member";
+
+  if (isLoading) {
+    return (
+      <div className="space-y-6">
+        <PageHeader title="My Profile" subtitle="Loading your account details..." />
+        <LoadingSkeleton cards={3} />
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
       <PageHeader
         title="My Profile"
-        subtitle="Manage your personal details, academic history, and career goals."
-        actions={[
-          {
-            id: "edit-profile",
-            label: "Edit Profile",
-            variant: "outline",
-            iconName: "FileText",
-            onClick: () => {},
-          },
-        ]}
+        subtitle="Manage your personal details, credentials, and guidance roadmap."
       />
 
       {/* Profile Header Banner Card */}
@@ -66,7 +106,7 @@ export default function ProfilePage() {
               {/* Completion Progress Bar */}
               <div className="pt-2 max-w-md space-y-1.5">
                 <div className="flex items-center justify-between text-xs text-muted-foreground">
-                  <span>Profile Completion</span>
+                  <span>Profile Completeness</span>
                   <span className="font-semibold text-foreground">{completionPercentage}%</span>
                 </div>
                 <div className="h-2 w-full bg-muted rounded-full overflow-hidden">
@@ -86,70 +126,77 @@ export default function ProfilePage() {
         </CardContent>
       </Card>
 
-      {/* Info Cards Grid consuming mockProfileData */}
+      {/* Info Cards Grid */}
       <WidgetGrid cols={{ default: 1, lg: 2 }} gap="gap-6">
         <InfoCard
           title="Basic Information"
           subtitle="Personal identification and contact details"
           iconName="UserCircle"
           items={[
-            { label: "First Name", value: user?.firstName },
-            { label: "Last Name", value: user?.lastName },
-            { label: "Email Address", value: user?.email },
-            { label: "Phone Number", value: basicInfo.phone },
-            { label: "Gender", value: basicInfo.gender },
-            { label: "Location", value: basicInfo.location },
+            { label: "First Name", value: user?.firstName || "N/A" },
+            { label: "Last Name", value: user?.lastName || "N/A" },
+            { label: "Email Address", value: user?.email || "N/A" },
+            { label: "Phone Number", value: phone },
+            { label: "Gender Identity", value: gender },
+            { label: "Account Scope", value: user?.role || "student" },
           ]}
         />
 
         <InfoCard
-          title="Academic Information"
-          subtitle="Current education level and degree details"
+          title="Academic Background"
+          subtitle="Current education degree details"
           iconName="BookOpen"
           items={[
-            { label: "Institution / University", value: academicInfo.institution },
-            { label: "Degree Program", value: academicInfo.degree },
-            { label: "Field of Study", value: academicInfo.fieldOfStudy },
-            { label: "Graduation Year", value: academicInfo.graduationYear },
-            { label: "GPA / Grade", value: academicInfo.gpa },
+            { label: "Institution", value: institution },
+            { label: "Degree Program", value: degree },
+            { label: "Field of Study", value: fieldOfStudy },
+            { label: "Graduation Year", value: graduationYear },
           ]}
         />
 
-        {/* Career Goals Custom SectionCard */}
+        {/* Career Aspirations Section */}
         <SectionCard
-          title="Career Goals"
-          subtitle="Target industries and aspirational roles"
+          title="Career Aspirations & Skills"
+          subtitle="Target job roles and core competencies"
           iconName="Target"
         >
           <div className="space-y-4 pt-1">
             <div>
-              <span className="text-xs text-muted-foreground block mb-1.5">Target Roles</span>
-              <div className="flex flex-wrap gap-1.5">
-                {careerGoals.targetRoles.map((role) => (
-                  <Badge key={role} variant="outline">
-                    {role}
-                  </Badge>
-                ))}
-              </div>
+              <span className="text-xs text-muted-foreground block mb-1.5 font-medium">Target Roles</span>
+              {targetRoles.length > 0 ? (
+                <div className="flex flex-wrap gap-1.5">
+                  {targetRoles.map((role, i) => (
+                    <Badge key={i} variant="outline">
+                      {role}
+                    </Badge>
+                  ))}
+                </div>
+              ) : (
+                <span className="text-xs text-muted-foreground italic">No target roles specified.</span>
+              )}
             </div>
 
             <div>
-              <span className="text-xs text-muted-foreground block mb-1.5">Preferred Industries</span>
-              <div className="flex flex-wrap gap-1.5">
-                {careerGoals.preferredIndustries.map((ind) => (
-                  <Badge key={ind} variant="secondary">
-                    {ind}
-                  </Badge>
-                ))}
-              </div>
+              <span className="text-xs text-muted-foreground block mb-1.5 font-medium">Key Skills</span>
+              {keySkills.length > 0 ? (
+                <div className="flex flex-wrap gap-1.5">
+                  {keySkills.map((skill, i) => (
+                    <Badge key={i} variant="secondary">
+                      {skill}
+                    </Badge>
+                  ))}
+                </div>
+              ) : (
+                <span className="text-xs text-muted-foreground italic">No key skills added yet.</span>
+              )}
             </div>
           </div>
         </SectionCard>
 
-        {/* Account Info Card */}
+        {/* Account Credentials Card */}
         <SectionCard
-          title="Account Information"
-          subtitle="Account status and platform credentials"
+          title="Account Security"
+          subtitle="Account status and session credentials"
           iconName="ShieldAlert"
         >
           <div className="grid grid-cols-2 gap-4 text-sm pt-1">
@@ -159,15 +206,15 @@ export default function ProfilePage() {
             </div>
             <div>
               <span className="text-xs text-muted-foreground block">Member Since</span>
-              <span className="font-medium text-foreground">{accountInfo.memberSince}</span>
+              <span className="font-medium text-foreground">{createdAtDate}</span>
             </div>
             <div>
               <span className="text-xs text-muted-foreground block">Security Status</span>
-              <StatusBadge status="active" label={accountInfo.securityStatus} />
+              <StatusBadge status="active" label="Verified Account" />
             </div>
             <div>
               <span className="text-xs text-muted-foreground block">Auth Strategy</span>
-              <span className="font-medium text-foreground">{accountInfo.authStrategy}</span>
+              <span className="font-medium text-foreground">JWT HttpOnly Cookie</span>
             </div>
           </div>
         </SectionCard>
