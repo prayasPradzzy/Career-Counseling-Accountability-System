@@ -1,5 +1,5 @@
 const User = require("../modules/users/user.model");
-const ClientProfile = require("../modules/profiles/clientProfile.model");
+const StudentProfile = require("../modules/profiles/studentProfile.model");
 const AssessmentDefinition = require("../modules/assessments/assessmentDefinition.model");
 const AssessmentSession = require("../modules/assessments/assessmentSession.model");
 const AssessmentResponse = require("../modules/assessments/assessmentResponse.model");
@@ -12,7 +12,7 @@ const Report = require("../modules/reports/report.model");
 
 module.exports = {
   User,
-  ClientProfile,
+  StudentProfile,
   AssessmentDefinition,
   AssessmentSession,
   AssessmentResponse,

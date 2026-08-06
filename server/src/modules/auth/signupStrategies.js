@@ -1,5 +1,5 @@
 const User = require("../users/user.model");
-const ClientProfile = require("../profiles/clientProfile.model");
+const StudentProfile = require("../profiles/studentProfile.model");
 const CounselorProfile = require("../counselors/counselorProfile.model");
 const InviteCode = require("./inviteCode.model");
 const ApiError = require("../../shared/utils/ApiError");
@@ -120,8 +120,8 @@ async function handleStudentSignup(userData) {
     counselorId: updatedInvite.ownerId,
   });
 
-  // Create ClientProfile linked to user and counselor
-  await ClientProfile.create({
+  // Create StudentProfile linked to user and counselor
+  await StudentProfile.create({
     userId: user._id,
     assignedCounselorId: updatedInvite.ownerId,
     onboardingSource: "counselor-invite",

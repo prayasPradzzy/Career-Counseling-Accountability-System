@@ -38,9 +38,9 @@ export function ProgressTimelineSection({ profile, milestones = [] }) {
         iconName="TrendingUp"
       >
         <div className="pt-2">
-          {displayList.map((item) => (
+          {displayList.map((item, idx) => (
             <TimelineCard
-              key={item.id}
+              key={item._id || item.id || idx}
               title={item.title}
               timestamp={item.timestamp}
               status={item.status}

@@ -1,5 +1,5 @@
 const crypto = require("crypto");
-const ClientProfile = require("../profiles/clientProfile.model");
+const StudentProfile = require("../profiles/studentProfile.model");
 const User = require("../users/user.model");
 const InviteCode = require("../auth/inviteCode.model");
 const ApiError = require("../../shared/utils/ApiError");
@@ -41,9 +41,9 @@ const calculateProfileCompletion = (profile) => {
 class ClientService {
   /**
    * Flow A: Student Self-Registration Profile Creation
-   * Ensures User exists and doesn't already have a ClientProfile.
+   * Ensures User exists and doesn't already have a StudentProfile.
    */
-  async createClientProfile(data, requestingUser) {
+  async createStudentProfile(data, requestingUser) {
     const { userId, phone, dateOfBirth, gender, education, careerGoals, targetIndustries, skills, languages, guardianInfo } = data;
 
     // Verify User exists
@@ -52,15 +52,15 @@ class ClientService {
       throw new ApiError(404, "Target user account not found");
     }
 
-    // Check if ClientProfile already exists for this user
-    const existingProfile = await ClientProfile.findOne({ userId });
+    // Check if StudentProfile already exists for this user
+    const existingProfile = await StudentProfile.findOne({ userId });
     if (existingProfile) {
       throw new ApiError(409, "Student profile already exists for this user account");
     }
 
     const initialCompletion = calculateProfileCompletion({ phone, dateOfBirth, gender, education, careerGoals, skills });
 
-    const profile = await ClientProfile.create({
+    const profile = await StudentProfile.create({
       userId,
       phone,
       dateOfBirth,
@@ -74,7 +74,7 @@ class ClientService {
       status: STUDENT_STATUS.REGISTERED,
     });
 
-    const populated = await ClientProfile.findById(profile._id)
+    const populated = await StudentProfile.findById(profile._id)
       .populate("userId", "firstName lastName email role")
       .populate("assignedCounselorId", "firstName lastName email");
 
@@ -87,7 +87,7 @@ class ClientService {
 
   /**
    * Flow B & C: Counselor / Admin Initiated Student Registration (Invitation Architecture)
-   * Creates a Student Record (ClientProfile) PRIOR to student User account activation.
+   * Creates a Student Record (StudentProfile) PRIOR to student User account activation.
    */
   async inviteStudent(data, requestingUser) {
     const { email, firstName, lastName, phone, education, guardianInfo, assignedCounselorId } = data;
@@ -101,7 +101,7 @@ class ClientService {
     }
 
     // Check if an invited student record already exists for this email
-    const existingInvitedProfile = await ClientProfile.findOne({
+    const existingInvitedProfile = await StudentProfile.findOne({
       invitedEmail: normalizedEmail,
       status: { $ne: "archived" },
     });
@@ -130,7 +130,7 @@ class ClientService {
 
     const initialStatus = counselorAssignment ? STUDENT_STATUS.COUNSELOR_ASSIGNED : STUDENT_STATUS.REGISTERED;
 
-    const studentRecord = await ClientProfile.create({
+    const studentRecord = await StudentProfile.create({
       invitedFirstName: firstName,
       invitedLastName: lastName,
       invitedEmail: normalizedEmail,
@@ -156,7 +156,7 @@ class ClientService {
       usedCount: 0,
     });
 
-    const populated = await ClientProfile.findById(studentRecord._id)
+    const populated = await StudentProfile.findById(studentRecord._id)
       .populate("invitedBy", "firstName lastName email role")
       .populate("assignedCounselorId", "firstName lastName email");
 
@@ -180,7 +180,7 @@ class ClientService {
   async activateStudentAccount(activationData) {
     const { token, password, firstName, lastName } = activationData;
 
-    const profile = await ClientProfile.findOne({
+    const profile = await StudentProfile.findOne({
       invitationToken: token,
       invitationExpiresAt: { $gt: Date.now() },
     });
@@ -212,7 +212,7 @@ class ClientService {
     profile.status = deriveStudentLifecycleStatus(profile, { completionPercentage: compAcc });
     await profile.save();
 
-    const populated = await ClientProfile.findById(profile._id)
+    const populated = await StudentProfile.findById(profile._id)
       .populate("userId", "firstName lastName email role")
       .populate("assignedCounselorId", "firstName lastName email");
 
@@ -236,8 +236,8 @@ class ClientService {
    * Get Student Profile by ID or UserID
    * Enforces RBAC: Students can only view their own profile.
    */
-  async getClientProfile(identifier, requestingUser) {
-    let profile = await ClientProfile.findOne({
+  async getStudentProfile(identifier, requestingUser) {
+    let profile = await StudentProfile.findOne({
       $or: [{ _id: identifier }, { userId: identifier }],
       status: { $ne: "archived" },
     })
@@ -343,14 +343,14 @@ class ClientService {
     }
 
     const [clients, total] = await Promise.all([
-      ClientProfile.find(filter)
+      StudentProfile.find(filter)
         .populate("userId", "firstName lastName email role counselorId")
         .populate("assignedCounselorId", "firstName lastName email")
         .populate("invitedBy", "firstName lastName email role")
         .skip(skip)
         .limit(limit)
         .sort({ createdAt: -1 }),
-      ClientProfile.countDocuments(filter),
+      StudentProfile.countDocuments(filter),
     ]);
 
     const formattedClients = clients.map((c) => {
@@ -383,8 +383,8 @@ class ClientService {
   /**
    * Update Student Profile
    */
-  async updateClientProfile(identifier, updateData, requestingUser) {
-    let profile = await ClientProfile.findOne({
+  async updateStudentProfile(identifier, updateData, requestingUser) {
+    let profile = await StudentProfile.findOne({
       $or: [{ _id: identifier }, { userId: identifier }],
       status: { $ne: "archived" },
     });
@@ -424,7 +424,7 @@ class ClientService {
     profile.status = deriveStudentLifecycleStatus(profile, { completionPercentage: compUpdate });
     await profile.save();
 
-    const updated = await ClientProfile.findById(profile._id)
+    const updated = await StudentProfile.findById(profile._id)
       .populate("userId", "firstName lastName email role")
       .populate("assignedCounselorId", "firstName lastName email");
 
@@ -446,8 +446,8 @@ class ClientService {
   /**
    * Soft Delete Student Profile (status: "archived")
    */
-  async softDeleteClientProfile(identifier, requestingUser) {
-    const profile = await ClientProfile.findOne({
+  async softDeleteStudentProfile(identifier, requestingUser) {
+    const profile = await StudentProfile.findOne({
       $or: [{ _id: identifier }, { userId: identifier }],
     });
 
@@ -470,7 +470,7 @@ class ClientService {
       throw new ApiError(404, "Target counselor not found");
     }
 
-    const profile = await ClientProfile.findOne({
+    const profile = await StudentProfile.findOne({
       $or: [{ _id: identifier }, { userId: identifier }],
       status: { $ne: "archived" },
     });

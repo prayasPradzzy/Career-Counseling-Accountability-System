@@ -49,7 +49,6 @@ const STATUS_TABS = [
   { value: "submitted", label: "Submitted", icon: FileSearch },
   { value: "under_review", label: "Reviewed", icon: Eye },
   { value: "approved", label: "Approved", icon: CheckCircle2 },
-  { value: "rejected", label: "Rejected", icon: XCircle },
 ];
 
 // Status → badge variant mapping
@@ -158,6 +157,7 @@ export default function CounselorAssessmentDashboard() {
       <PageHeader
         title="Assessment Review"
         subtitle="Review, approve, and manage student assessment submissions across all assigned assessments."
+        breadcrumbs={false}
       />
 
       {/* Summary Stats */}
@@ -225,14 +225,14 @@ export default function CounselorAssessmentDashboard() {
               </div>
             ) : (
               <div className="space-y-3">
-                {assignments.map((assignment) => (
+                {assignments.map((assignment, index) => (
                   <AssignmentRow
-                    key={assignment._id}
+                    key={`${tab.value}-${assignment._id || assignment.id || index}`}
                     assignment={assignment}
                     onReview={() => handleOpenActionDialog("review", assignment)}
                     onApprove={() => handleOpenActionDialog("approve", assignment)}
                     onReject={() => handleOpenActionDialog("reject", assignment)}
-                    onViewDetail={() => router.push(`/assessments/review/${assignment._id}`)}
+                    onViewDetail={() => router.push(`/assessments/review/${assignment._id || assignment.id}`)}
                   />
                 ))}
               </div>
@@ -252,11 +252,11 @@ export default function CounselorAssessmentDashboard() {
             </DialogTitle>
             <DialogDescription>
               {actionDialog.type === "approve" &&
-                "Confirming will approve this assessment and may unlock the next assessment in the sequence."}
+                "Approval is an optional QA step. The student's next assessment unlocks automatically upon submission — approving confirms this submission is trustworthy and records your sign-off."}
               {actionDialog.type === "reject" &&
-                "The student will be asked to retake this assessment. Please explain why."}
+                "The student will be asked to retake this assessment. A clear explanation is required so they understand what to address."}
               {actionDialog.type === "review" &&
-                "Mark this assessment as under review. You can add optional notes."}
+                "Mark this submission as under review while you evaluate the details. No student action is triggered."}
             </DialogDescription>
           </DialogHeader>
 

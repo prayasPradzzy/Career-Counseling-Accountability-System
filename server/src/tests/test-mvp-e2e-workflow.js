@@ -5,7 +5,7 @@ const http = require("http");
 
 const app = require("../app");
 const User = require("../modules/users/user.model");
-const ClientProfile = require("../modules/profiles/clientProfile.model");
+const StudentProfile = require("../modules/profiles/studentProfile.model");
 const AssessmentDefinition = require("../modules/assessments/assessmentDefinition.model");
 const AssessmentQuestion = require("../modules/assessments/assessmentQuestion.model");
 const { AssessmentAssignment } = require("../modules/assessments/assessmentAssignment.model");
@@ -85,7 +85,7 @@ async function runMvpE2EWorkflowAudit() {
     const testStudentEmail = "e2e_student@example.com";
 
     await User.deleteMany({ email: { $in: [testAdminEmail, testCounselorEmail, testStudentEmail] } });
-    await ClientProfile.deleteMany({ invitedEmail: testStudentEmail });
+    await StudentProfile.deleteMany({ invitedEmail: testStudentEmail });
 
     // ------------------------------------------------------------------------
     // STEP 1: Admin account exists
@@ -405,7 +405,7 @@ async function runMvpE2EWorkflowAudit() {
     // STEP 15: Student lifecycle changes to INTERVIEW_PENDING
     // ------------------------------------------------------------------------
     console.log("--- Step 15: Student Lifecycle Check ---");
-    const finalProfile = await ClientProfile.findOne({ userId: studentUserId });
+    const finalProfile = await StudentProfile.findOne({ userId: studentUserId });
     const finalLifecycleStatus = finalProfile ? finalProfile.status : null;
 
     if (finalLifecycleStatus !== "INTERVIEW_PENDING") {
@@ -415,7 +415,7 @@ async function runMvpE2EWorkflowAudit() {
     console.log(`✅ Step 15 Verified: Student Lifecycle Status updated to: ${finalLifecycleStatus}\n`);
 
     // Cleanup test records created during test run
-    if (studentProfileId) await ClientProfile.deleteMany({ _id: studentProfileId });
+    if (studentProfileId) await StudentProfile.deleteMany({ _id: studentProfileId });
     if (studentUserId) {
       await AssessmentAssignment.deleteMany({ studentId: studentUserId });
       await AssessmentSession.deleteMany({ clientId: studentUserId });
@@ -424,7 +424,7 @@ async function runMvpE2EWorkflowAudit() {
       await User.deleteMany({ _id: studentUserId });
     }
     await User.deleteMany({ email: { $in: [testAdminEmail, testCounselorEmail, testStudentEmail] } });
-    await ClientProfile.deleteMany({ invitedEmail: testStudentEmail });
+    await StudentProfile.deleteMany({ invitedEmail: testStudentEmail });
 
     console.log("==========================================================================");
     console.log("    🎉 100% END-TO-END MVP ACCEPTANCE WORKFLOW AUDIT PASSED!              ");

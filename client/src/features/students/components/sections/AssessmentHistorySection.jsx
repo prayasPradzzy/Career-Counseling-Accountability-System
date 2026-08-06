@@ -55,7 +55,7 @@ export function AssessmentHistorySection({ assignments = [], onAssignAssessment 
               className="p-6 sm:p-8"
             />
           ) : (
-            assignments.map((item) => {
+            assignments.map((item, idx) => {
               const definition = item.assessmentDefinitionId || {};
               const title = definition.title || "Career Assessment";
               const category = definition.category || item.category || "—";
@@ -95,7 +95,7 @@ export function AssessmentHistorySection({ assignments = [], onAssignAssessment 
 
               return (
                 <div
-                  key={item._id}
+                  key={item._id || item.id || idx}
                   className="flex flex-col sm:flex-row sm:items-center justify-between p-4 rounded-lg border border-border bg-card hover:bg-muted/20 transition-colors gap-3"
                 >
                   <div className="space-y-1.5 flex-1 min-w-0">

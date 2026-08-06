@@ -143,26 +143,7 @@ export default function DashboardPage() {
         },
       ];
     }
-    if (userRole === ROLES.COUNSELOR) {
-      return [
-        {
-          id: "schedule-session-action",
-          label: "Schedule Session",
-          href: "/sessions",
-          variant: "default",
-          iconName: "Plus",
-        },
-      ];
-    }
-    return [
-      {
-        id: "schedule-session-action",
-        label: "Schedule Session",
-        href: "/sessions",
-        variant: "default",
-        iconName: "Plus",
-      },
-    ];
+    return [];
   };
 
   return (

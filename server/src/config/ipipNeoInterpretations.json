@@ -1,0 +1,27 @@
+{
+  "Openness": {
+    "Low": "Pragmatic, conventional, and detail-oriented — prefers structured tasks, concrete facts, and proven methods over abstract theories.",
+    "Moderate": "Balanced outlook — appreciates established practices while remaining open to innovative approaches when beneficial.",
+    "High": "Shows strong intellectual curiosity and openness to new experiences — likely to explore unconventional or creative career paths."
+  },
+  "Conscientiousness": {
+    "Low": "Flexible, spontaneous, and informal — prefers adaptable environments over strict schedules or rigid structures.",
+    "Moderate": "Methodical yet flexible — sets realistic goals and manages responsibilities effectively while adapting to changes.",
+    "High": "Highly organized, disciplined, and goal-oriented — excels at systematic planning, detail precision, and long-term execution."
+  },
+  "Extraversion": {
+    "Low": "Introverted, independent, and reflective — prefers quiet environments and deep focus over social stimulation.",
+    "Moderate": "Ambiverted — comfortably balances social engagement with personal downtime depending on context.",
+    "High": "Energetic, enthusiastic, and socially outgoing — thrives in collaborative, fast-paced, and people-oriented roles."
+  },
+  "Agreeableness": {
+    "Low": "Competitive, skeptical, and direct — prioritizes objective outcomes and critical evaluation over consensus or harmony.",
+    "Moderate": "Cooperative yet firm — balances empathy and kindness with personal boundaries and pragmatic decision-making.",
+    "High": "Empathetic, compassionate, and highly cooperative — excels in supportive, team-focused, and service-oriented environments."
+  },
+  "Neuroticism": {
+    "Low": "Calm, emotionally stable, and resilient under stress — unlikely to experience intense anxiety or mood swings.",
+    "Moderate": "Balances emotional reactivity with composure — experiences normal stress under pressure but generally maintains stability.",
+    "High": "Highly sensitive to environmental stress and emotional triggers — may benefit from supportive environments and stress management techniques."
+  }
+}

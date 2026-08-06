@@ -4,9 +4,8 @@ const AssessmentResponse = require("./assessmentResponse.model");
 const AssessmentDefinition = require("./assessmentDefinition.model");
 const AssessmentSection = require("./assessmentSection.model");
 const AssessmentQuestion = require("./assessmentQuestion.model");
-const AssessmentOption = require("./assessmentOption.model");
 const { AssessmentAssignment, ASSIGNMENT_STATUS } = require("./assessmentAssignment.model");
-const ClientProfile = require("../profiles/clientProfile.model");
+const StudentProfile = require("../profiles/studentProfile.model");
 const scoringEngine = require("./scoring/scoringEngine");
 const ApiError = require("../../shared/utils/ApiError");
 const { deriveStudentLifecycleStatus } = require("../../shared/constants/studentStatus.constants");
@@ -131,7 +130,7 @@ class AssessmentSessionService {
     }
 
     // Update Student Profile Lifecycle Status
-    const profile = await ClientProfile.findOne({ userId: assignment.studentId });
+    const profile = await StudentProfile.findOne({ userId: assignment.studentId });
     if (profile) {
       profile.status = deriveStudentLifecycleStatus(profile, { assessmentState: "in-progress" });
       await profile.save();
@@ -196,24 +195,22 @@ class AssessmentSessionService {
     // Fetch Questions ordered
     const questions = await AssessmentQuestion.find({ assessmentId }).sort({ questionNumber: 1 });
 
-    // Fetch Options for all questions
-    const questionIds = questions.map((q) => q._id);
-    const options = await AssessmentOption.find({ questionId: { $in: questionIds } }).sort({ order: 1 });
+    // Shared Scale Options derived directly from AssessmentDefinition.scale
+    const scaleConfig = session.assessmentDefinitionId?.scale || {};
+    const scaleLabels = scaleConfig.labels || {
+      "1": "Disagree Strongly",
+      "2": "Disagree a little",
+      "3": "Neither agree nor disagree",
+      "4": "Agree a little",
+      "5": "Agree Strongly",
+    };
 
-    // Map options by questionId
-    const optionsByQuestion = {};
-    for (const opt of options) {
-      const qIdStr = opt.questionId.toString();
-      if (!optionsByQuestion[qIdStr]) {
-        optionsByQuestion[qIdStr] = [];
-      }
-      optionsByQuestion[qIdStr].push({
-        id: opt._id,
-        label: opt.label,
-        value: opt.value,
-        order: opt.order,
-      });
-    }
+    const sharedOptions = Object.entries(scaleLabels).map(([valueStr, label], idx) => ({
+      id: `opt-${valueStr}`,
+      label,
+      value: Number(valueStr),
+      order: idx + 1,
+    }));
 
     // Attach options and saved answer state to questions
     const structuredQuestions = questions.map((q) => {
@@ -229,7 +226,7 @@ class AssessmentSessionService {
         facet: q.facet,
         questionType: q.questionType,
         required: q.required,
-        options: optionsByQuestion[qIdStr] || [],
+        options: sharedOptions,
         savedResponse: saved ? saved.selectedValue : null,
       };
     });
@@ -421,6 +418,18 @@ class AssessmentSessionService {
       percentage: 100,
     };
 
+    // Quick-completion guard: flag submissions that finish a long assessment
+    // (≥ 60 questions) in under 5 minutes — a signal worth counselor attention.
+    const QUICK_COMPLETION_THRESHOLD_SECONDS = 300; // 5 minutes
+    const QUICK_COMPLETION_MIN_QUESTIONS = 60;
+    if (
+      totalQuestions >= QUICK_COMPLETION_MIN_QUESTIONS &&
+      session.timeSpentSeconds < QUICK_COMPLETION_THRESHOLD_SECONDS
+    ) {
+      session.flagged = true;
+      session.flagReason = "quick_completion";
+    }
+
     await session.save();
 
     // Trigger Strategy-Based Scoring Engine
@@ -437,7 +446,7 @@ class AssessmentSessionService {
     }
 
     // Update Student Profile Lifecycle Status
-    const profile = await ClientProfile.findOne({ userId: session.clientId });
+    const profile = await StudentProfile.findOne({ userId: session.clientId });
     if (profile) {
       profile.status = deriveStudentLifecycleStatus(profile, { assessmentState: "completed" });
       await profile.save();

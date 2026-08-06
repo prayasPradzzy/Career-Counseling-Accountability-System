@@ -1,5 +1,5 @@
 const User = require("../users/user.model");
-const ClientProfile = require("./clientProfile.model");
+const StudentProfile = require("./studentProfile.model");
 const CounselorProfile = require("../counselors/counselorProfile.model");
 const AssessmentSession = require("../assessments/assessmentSession.model");
 const ApiError = require("../../shared/utils/ApiError");
@@ -41,9 +41,9 @@ class ProfileService {
       }
     } else {
       // Student role
-      profileDoc = await ClientProfile.findOne({ userId: userDoc._id });
+      profileDoc = await StudentProfile.findOne({ userId: userDoc._id });
       if (!profileDoc) {
-        profileDoc = await ClientProfile.create({
+        profileDoc = await StudentProfile.create({
           userId: userDoc._id,
           phone: "",
           gender: "prefer-not-to-say",
@@ -55,6 +55,21 @@ class ProfileService {
     }
 
     const profileObj = profileDoc.toObject();
+
+    if (userDoc.role !== "counselor" && userDoc.role !== "admin") {
+      const primaryEdu = (Array.isArray(profileObj.education) && profileObj.education[0]) || {};
+      profileObj.academic = {
+        institution: primaryEdu.institution || "",
+        degreeProgram: primaryEdu.degree || primaryEdu.degreeProgram || "",
+        fieldOfStudy: primaryEdu.fieldOfStudy || "",
+        graduationYear: primaryEdu.endYear || primaryEdu.graduationYear || undefined,
+      };
+      profileObj.careerGoals = {
+        targetRoles: Array.isArray(profileObj.careerGoals) ? profileObj.careerGoals : [],
+        keySkills: Array.isArray(profileObj.skills) ? profileObj.skills : [],
+      };
+    }
+
     const completenessPercentage = calculateRoleProfileCompleteness(userDoc.role, profileObj);
 
     return {
@@ -74,6 +89,17 @@ class ProfileService {
       throw new ApiError(404, "User account not found.");
     }
 
+    const fieldErrors = {};
+
+    // Validate Phone Number if provided
+    if (data.phone !== undefined && data.phone !== null && data.phone.trim() !== "") {
+      const cleanPhone = data.phone.trim();
+      const phoneRegex = /^\+?[0-9\s\-().]{7,20}$/;
+      if (!phoneRegex.test(cleanPhone)) {
+        fieldErrors.phone = "Please enter a valid phone number (7-20 digits).";
+      }
+    }
+
     // Role-specific Strict Schema Validation: Reject mismatched fields
     if (userDoc.role === "counselor" || userDoc.role === "admin") {
       const studentOnlyKeys = ["academic", "education", "careerGoals", "targetRoles", "skills", "guardianInfo", "consentStatus"];
@@ -85,34 +111,38 @@ class ProfileService {
         );
       }
 
+      if (Object.keys(fieldErrors).length > 0) {
+        throw new ApiError(400, "Validation failed for counselor profile.", fieldErrors);
+      }
+
       let profileDoc = await CounselorProfile.findOne({ userId: userDoc._id });
       if (!profileDoc) {
         profileDoc = new CounselorProfile({ userId: userDoc._id });
       }
 
-      if (data.phone !== undefined) profileDoc.phone = data.phone;
+      if (data.phone !== undefined) profileDoc.phone = data.phone.trim();
       if (data.gender !== undefined) profileDoc.gender = data.gender;
 
       if (data.credentials) {
         if (data.credentials.highestQualification !== undefined)
-          profileDoc.credentials.highestQualification = data.credentials.highestQualification;
+          profileDoc.credentials.highestQualification = data.credentials.highestQualification.trim();
         if (data.credentials.institution !== undefined)
-          profileDoc.credentials.institution = data.credentials.institution;
+          profileDoc.credentials.institution = data.credentials.institution.trim();
         if (Array.isArray(data.credentials.certifications))
-          profileDoc.credentials.certifications = data.credentials.certifications;
+          profileDoc.credentials.certifications = data.credentials.certifications.map((s) => String(s).trim()).filter(Boolean);
         if (data.credentials.licenseNumber !== undefined)
-          profileDoc.credentials.licenseNumber = data.credentials.licenseNumber;
+          profileDoc.credentials.licenseNumber = data.credentials.licenseNumber.trim();
       }
 
       if (data.practice) {
         if (Array.isArray(data.practice.specializations))
-          profileDoc.practice.specializations = data.practice.specializations;
+          profileDoc.practice.specializations = data.practice.specializations.map((s) => String(s).trim()).filter(Boolean);
         if (typeof data.practice.yearsExperience === "number")
           profileDoc.practice.yearsExperience = data.practice.yearsExperience;
         if (Array.isArray(data.practice.languagesSpoken))
-          profileDoc.practice.languagesSpoken = data.practice.languagesSpoken;
+          profileDoc.practice.languagesSpoken = data.practice.languagesSpoken.map((s) => String(s).trim()).filter(Boolean);
         if (data.practice.bio !== undefined)
-          profileDoc.practice.bio = data.practice.bio;
+          profileDoc.practice.bio = data.practice.bio.trim();
       }
 
       await profileDoc.save();
@@ -128,21 +158,45 @@ class ProfileService {
         );
       }
 
-      let profileDoc = await ClientProfile.findOne({ userId: userDoc._id });
-      if (!profileDoc) {
-        profileDoc = new ClientProfile({ userId: userDoc._id });
+      // Validate Graduation Year if provided
+      if (data.academic) {
+        const gradYear = data.academic.graduationYear;
+        if (gradYear !== undefined && gradYear !== null && String(gradYear).trim() !== "") {
+          const gradYearNum = Number(gradYear);
+          const currentYear = new Date().getFullYear();
+          if (
+            isNaN(gradYearNum) ||
+            !Number.isInteger(gradYearNum) ||
+            gradYearNum < 1950 ||
+            gradYearNum > 2100 ||
+            gradYearNum < currentYear - 2 ||
+            gradYearNum > currentYear + 15
+          ) {
+            fieldErrors.graduationYear = `Graduation year must be a valid 4-digit year between ${currentYear - 2} and ${currentYear + 15}.`;
+          }
+        }
       }
 
-      if (data.phone !== undefined) profileDoc.phone = data.phone;
+      if (Object.keys(fieldErrors).length > 0) {
+        throw new ApiError(400, "Validation failed for student profile.", fieldErrors);
+      }
+
+      let profileDoc = await StudentProfile.findOne({ userId: userDoc._id });
+      if (!profileDoc) {
+        profileDoc = new StudentProfile({ userId: userDoc._id });
+      }
+
+      if (data.phone !== undefined) profileDoc.phone = data.phone.trim();
       if (data.gender !== undefined) profileDoc.gender = data.gender;
 
       // Handle academic / education object or arrays
       if (data.academic) {
+        const gradYearVal = data.academic.graduationYear ? Number(data.academic.graduationYear) : undefined;
         const eduItem = {
-          institution: data.academic.institution || "",
-          degree: data.academic.degreeProgram || "",
-          fieldOfStudy: data.academic.fieldOfStudy || "",
-          endYear: data.academic.graduationYear || undefined,
+          institution: (data.academic.institution || "").trim(),
+          degree: (data.academic.degreeProgram || "").trim(),
+          fieldOfStudy: (data.academic.fieldOfStudy || "").trim(),
+          endYear: gradYearVal,
         };
         profileDoc.education = [eduItem];
       } else if (Array.isArray(data.education)) {
@@ -152,17 +206,17 @@ class ProfileService {
       // Handle career goals / skills object or arrays
       if (data.careerGoals && typeof data.careerGoals === "object" && !Array.isArray(data.careerGoals)) {
         if (Array.isArray(data.careerGoals.targetRoles)) {
-          profileDoc.careerGoals = data.careerGoals.targetRoles;
+          profileDoc.careerGoals = data.careerGoals.targetRoles.map((s) => String(s).trim()).filter(Boolean);
         }
         if (Array.isArray(data.careerGoals.keySkills)) {
-          profileDoc.skills = data.careerGoals.keySkills;
+          profileDoc.skills = data.careerGoals.keySkills.map((s) => String(s).trim()).filter(Boolean);
         }
       } else if (Array.isArray(data.careerGoals)) {
-        profileDoc.careerGoals = data.careerGoals;
+        profileDoc.careerGoals = data.careerGoals.map((s) => String(s).trim()).filter(Boolean);
       }
 
       if (Array.isArray(data.skills)) {
-        profileDoc.skills = data.skills;
+        profileDoc.skills = data.skills.map((s) => String(s).trim()).filter(Boolean);
       }
 
       await profileDoc.save();
@@ -190,13 +244,13 @@ class ProfileService {
     }
 
     // Active assigned students
-    const activeStudents = await ClientProfile.countDocuments({
+    const activeStudents = await StudentProfile.countDocuments({
       assignedCounselorId: user._id,
       status: { $ne: "archived" },
     });
 
     // Completed sessions for assigned students
-    const assignedProfiles = await ClientProfile.find({ assignedCounselorId: user._id }).select("userId");
+    const assignedProfiles = await StudentProfile.find({ assignedCounselorId: user._id }).select("userId");
     const studentUserIds = assignedProfiles.map((p) => p.userId).filter(Boolean);
 
     const sessionsCompleted = await AssessmentSession.countDocuments({
@@ -205,14 +259,14 @@ class ProfileService {
     });
 
     // Active unactivated invite codes created by this counselor
-    const inviteCodesActive = await ClientProfile.countDocuments({
+    const inviteCodesActive = await StudentProfile.countDocuments({
       invitedBy: user._id,
       userId: null,
       invitationExpiresAt: { $gt: new Date() },
     });
 
     // Used invite codes (activated student accounts)
-    const inviteCodesUsed = await ClientProfile.countDocuments({
+    const inviteCodesUsed = await StudentProfile.countDocuments({
       invitedBy: user._id,
       userId: { $ne: null },
     });

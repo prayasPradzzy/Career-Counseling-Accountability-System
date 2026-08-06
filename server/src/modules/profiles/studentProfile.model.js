@@ -18,16 +18,14 @@ const academicDocumentSchema = new mongoose.Schema(
   {
     title: { type: String, required: true, trim: true },
     fileUrl: { type: String, required: true, trim: true },
-    parsedText: { type: String, default: "" }, // OCR extracted text
+    parsedText: { type: String, default: "" },
     uploadedAt: { type: Date, default: Date.now },
   },
   { _id: true }
 );
 
-const clientProfileSchema = new mongoose.Schema(
+const studentProfileSchema = new mongoose.Schema(
   {
-    // Clean distinction between Student Record & User Account:
-    // userId can be null when a Counselor or Admin creates a Student Record prior to student account activation.
     userId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "User",
@@ -35,12 +33,10 @@ const clientProfileSchema = new mongoose.Schema(
       index: true,
       sparse: true,
     },
-    // Optional pre-registration info for invited student records prior to account activation
     invitedFirstName: { type: String, trim: true },
     invitedLastName: { type: String, trim: true },
     invitedEmail: { type: String, trim: true, lowercase: true },
 
-    // Invitation Architecture
     onboardingSource: {
       type: String,
       enum: ["self-signup", "counselor-invite", "admin-invite"],
@@ -95,9 +91,9 @@ const clientProfileSchema = new mongoose.Schema(
       index: true,
     },
   },
-  defaultSchemaOptions
+  { ...defaultSchemaOptions, collection: "studentprofiles" }
 );
 
-const ClientProfile = mongoose.model("ClientProfile", clientProfileSchema);
+const StudentProfile = mongoose.model("StudentProfile", studentProfileSchema);
 
-module.exports = ClientProfile;
+module.exports = StudentProfile;

@@ -7,7 +7,7 @@ const catchAsync = require("../../shared/utils/catchAsync");
  */
 class ClientController {
   createClientProfile = catchAsync(async (req, res) => {
-    const profile = await clientService.createClientProfile(req.body, req.user);
+    const profile = await clientService.createStudentProfile(req.body, req.user);
     res.status(201).json({
       status: "success",
       message: "Student profile created successfully",
@@ -34,7 +34,7 @@ class ClientController {
   });
 
   getClientProfile = catchAsync(async (req, res) => {
-    const profile = await clientService.getClientProfile(req.params.id, req.user);
+    const profile = await clientService.getStudentProfile(req.params.id, req.user);
     res.status(200).json({
       status: "success",
       data: { profile },
@@ -50,7 +50,7 @@ class ClientController {
   });
 
   updateClientProfile = catchAsync(async (req, res) => {
-    const profile = await clientService.updateClientProfile(req.params.id, req.body, req.user);
+    const profile = await clientService.updateStudentProfile(req.params.id, req.body, req.user);
     res.status(200).json({
       status: "success",
       message: "Student profile updated successfully",
@@ -59,7 +59,7 @@ class ClientController {
   });
 
   softDeleteClientProfile = catchAsync(async (req, res) => {
-    const result = await clientService.softDeleteClientProfile(req.params.id, req.user);
+    const result = await clientService.softDeleteStudentProfile(req.params.id, req.user);
     res.status(200).json({
       status: "success",
       message: result.message,

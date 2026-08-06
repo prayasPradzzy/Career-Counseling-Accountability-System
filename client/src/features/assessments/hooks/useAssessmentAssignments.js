@@ -93,7 +93,7 @@ export function useAssignmentReviewDetail(assignmentId) {
   return useQuery({
     queryKey: [...ASSIGNMENT_KEYS.all, "review-detail", assignmentId],
     queryFn: () => assessmentAssignmentService.getAssignmentReviewDetail(assignmentId),
-    enabled: Boolean(assignmentId),
+    enabled: Boolean(assignmentId) && assignmentId !== "undefined",
   });
 }
 

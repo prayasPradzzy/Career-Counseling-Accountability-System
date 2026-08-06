@@ -96,6 +96,20 @@ const assessmentSessionSchema = new mongoose.Schema(
       type: mongoose.Schema.Types.Mixed,
       default: {},
     },
+
+    // Quick-completion flag — set server-side at submission if duration is
+    // suspiciously short relative to the number of questions.
+    flagged: {
+      type: Boolean,
+      default: false,
+      index: true,
+    },
+
+    // Machine-readable reason string (e.g. "quick_completion")
+    flagReason: {
+      type: String,
+      default: null,
+    },
   },
   defaultSchemaOptions
 );

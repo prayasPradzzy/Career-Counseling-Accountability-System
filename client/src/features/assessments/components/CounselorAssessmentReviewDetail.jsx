@@ -10,6 +10,7 @@ import {
 } from "@/features/assessments/hooks/useAssessmentAssignments";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { SectionCard } from "@/components/common/SectionCard";
+import DomainScoreCard from "./DomainScoreCard";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
@@ -38,6 +39,7 @@ import {
   Layers,
   FileText,
   AlertCircle,
+  AlertTriangle,
   HelpCircle,
 } from "lucide-react";
 import { toast } from "sonner";
@@ -74,7 +76,7 @@ function formatDuration(seconds) {
 
 export default function CounselorAssessmentReviewDetail({ assignmentId }) {
   const router = useRouter();
-  const { data, isLoading, refetch } = useAssignmentReviewDetail(assignmentId);
+  const { data, isLoading, error, refetch } = useAssignmentReviewDetail(assignmentId);
 
   const [actionDialog, setActionDialog] = useState({ open: false, type: null });
   const [counselorNotes, setCounselorNotes] = useState("");
@@ -84,6 +86,24 @@ export default function CounselorAssessmentReviewDetail({ assignmentId }) {
   const rejectMutation = useRejectAssignment();
   const reviewMutation = useReviewAssignment();
 
+  // Guard: missing ID (e.g. Suspense hasn't resolved params yet)
+  if (!assignmentId || assignmentId === "undefined") {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[400px] space-y-3">
+        <AlertCircle className="size-10 text-muted-foreground" />
+        <p className="text-sm text-muted-foreground font-medium">
+          No assignment ID provided.
+        </p>
+        <button
+          onClick={() => router.push("/assessments")}
+          className="text-xs text-primary underline"
+        >
+          Back to Assessments
+        </button>
+      </div>
+    );
+  }
+
   if (isLoading) {
     return (
       <div className="flex flex-col items-center justify-center min-h-[400px] space-y-3">
@@ -91,6 +111,24 @@ export default function CounselorAssessmentReviewDetail({ assignmentId }) {
         <p className="text-sm text-muted-foreground font-medium">
           Loading assessment review data...
         </p>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[400px] space-y-3">
+        <AlertCircle className="size-10 text-destructive" />
+        <p className="text-sm font-medium">Failed to load review data.</p>
+        <p className="text-xs text-muted-foreground">
+          {error?.response?.data?.message || "Please try again or go back."}
+        </p>
+        <button
+          onClick={() => router.push("/assessments")}
+          className="text-xs text-primary underline"
+        >
+          Back to Assessments
+        </button>
       </div>
     );
   }
@@ -276,6 +314,23 @@ export default function CounselorAssessmentReviewDetail({ assignmentId }) {
         </div>
       </div>
 
+      {/* Quick-completion warning banner */}
+      {session.flagged && (
+        <div className="flex items-start gap-3 p-4 rounded-xl bg-amber-500/10 border border-amber-500/30">
+          <AlertTriangle className="size-4 text-amber-500 shrink-0 mt-0.5" />
+          <div className="space-y-0.5">
+            <p className="text-xs font-semibold text-amber-700 dark:text-amber-400">
+              Unusually Quick Submission
+            </p>
+            <p className="text-xs text-amber-700/80 dark:text-amber-400/80 leading-relaxed">
+              This assessment ({session.progress?.totalQuestions ?? "120"} items) was completed in{" "}
+              <span className="font-semibold">{formatDuration(session.timeSpentSeconds)}</span> — under 5 minutes.
+              Review individual responses carefully before approving.
+            </p>
+          </div>
+        </div>
+      )}
+
       {/* Counselor Notes Display if present */}
       {assignment.counselorNotes && (
         <div className="p-4 rounded-xl bg-muted/40 border border-border/60 space-y-1">
@@ -304,42 +359,25 @@ export default function CounselorAssessmentReviewDetail({ assignmentId }) {
 
         {/* Tab 1: Domain Scores Summary */}
         <TabsContent value="scores" className="space-y-4">
-          {!score || !score.dimensionScores || score.dimensionScores.length === 0 ? (
+          {!score || (!score.domainScores && !score.dimensionScores) || (score.domainScores || score.dimensionScores).length === 0 ? (
             <SectionCard title="Scores Summary">
               <p className="text-xs text-muted-foreground italic py-4">
                 No computed scores available yet. Score computation occurs upon student submission.
               </p>
             </SectionCard>
           ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {score.dimensionScores.map((dim, idx) => (
-                <div
-                  key={idx}
-                  className="p-4 rounded-xl border border-border/60 bg-card space-y-3 shadow-xs"
-                >
-                  <div className="flex items-center justify-between gap-2">
-                    <h4 className="font-semibold text-sm">{dim.dimensionName}</h4>
-                    <Badge variant="outline" className="text-[10px]">
-                      {dim.qualitativeLevel || `${Math.round(dim.normalizedScore)}%`}
-                    </Badge>
-                  </div>
-
-                  <div className="space-y-1">
-                    <div className="flex justify-between text-xs text-muted-foreground">
-                      <span>Normalized Score</span>
-                      <span className="font-medium text-foreground">
-                        {Math.round(dim.normalizedScore)} / 100
-                      </span>
-                    </div>
-                    <Progress value={dim.normalizedScore} className="h-2" />
-                  </div>
-
-                  <div className="flex justify-between text-[11px] text-muted-foreground pt-2 border-t border-border/50">
-                    <span>Raw Score: {dim.rawScore}</span>
-                    <span>Percentile: {dim.percentile || 0}th</span>
-                  </div>
-                </div>
+            <div className="space-y-4">
+              {(score.domainScores || score.dimensionScores || []).map((dom, idx) => (
+                <DomainScoreCard
+                  key={dom.domain || dom.dimensionName || idx}
+                  domain={dom}
+                  defaultExpanded={false}
+                />
               ))}
+              <div className="pt-2 flex items-center gap-1.5 text-xs text-muted-foreground italic">
+                <FileText className="size-3.5 shrink-0" />
+                <span>Full narrative report generation coming soon</span>
+              </div>
             </div>
           )}
         </TabsContent>
@@ -489,11 +527,11 @@ export default function CounselorAssessmentReviewDetail({ assignmentId }) {
             </DialogTitle>
             <DialogDescription>
               {actionDialog.type === "approve" &&
-                "Confirming will approve this assessment and unlock the next stage if applicable."}
+                "Approval is an optional QA step. The student's next assessment unlocks automatically upon submission — approving confirms this submission is trustworthy and records your sign-off."}
               {actionDialog.type === "reject" &&
-                "The student will be requested to retake the test. Please provide clear notes."}
+                "The student will be asked to retake this assessment. A clear explanation is required so they understand what to address."}
               {actionDialog.type === "review" &&
-                "Set status to under review while evaluating details."}
+                "Mark this submission as under review while you evaluate the details. No student action is triggered."}
             </DialogDescription>
           </DialogHeader>
 

@@ -1,7 +1,8 @@
+const mongoose = require("mongoose");
 const { AssessmentAssignment, ASSIGNMENT_STATUS } = require("./assessmentAssignment.model");
 const AssessmentDefinition = require("./assessmentDefinition.model");
 const User = require("../users/user.model");
-const ClientProfile = require("../profiles/clientProfile.model");
+const StudentProfile = require("../profiles/studentProfile.model");
 const ApiError = require("../../shared/utils/ApiError");
 const { deriveStudentLifecycleStatus, STUDENT_STATUS } = require("../../shared/constants/studentStatus.constants");
 
@@ -28,7 +29,7 @@ class AssessmentAssignmentService {
       const counselorIdStr = requestingUser._id.toString();
       const userCounselorIdStr = studentUser.counselorId ? studentUser.counselorId.toString() : null;
 
-      const profile = await ClientProfile.findOne({ userId: studentId });
+      const profile = await StudentProfile.findOne({ userId: studentId });
       const assignedIdStr = profile && profile.assignedCounselorId ? profile.assignedCounselorId.toString() : null;
       const invitedByIdStr = profile && profile.invitedBy ? profile.invitedBy.toString() : null;
 
@@ -62,7 +63,7 @@ class AssessmentAssignmentService {
     });
 
     // Update Student Profile Lifecycle Status to ASSESSMENT_PENDING
-    const profile = await ClientProfile.findOne({ userId: studentId });
+    const profile = await StudentProfile.findOne({ userId: studentId });
     if (profile) {
       profile.status = deriveStudentLifecycleStatus(profile, { assessmentState: "pending" });
       await profile.save();
@@ -89,7 +90,7 @@ class AssessmentAssignmentService {
       const studentUser = await User.findById(studentId);
       const userCounselorIdStr = studentUser && studentUser.counselorId ? studentUser.counselorId.toString() : null;
 
-      const profile = await ClientProfile.findOne({ $or: [{ _id: studentId }, { userId: studentId }] });
+      const profile = await StudentProfile.findOne({ $or: [{ _id: studentId }, { userId: studentId }] });
       const assignedIdStr = profile && profile.assignedCounselorId ? profile.assignedCounselorId.toString() : null;
       const invitedByIdStr = profile && profile.invitedBy ? profile.invitedBy.toString() : null;
 
@@ -168,7 +169,7 @@ class AssessmentAssignmentService {
     await assignment.save();
 
     // Update Lifecycle Status
-    const profile = await ClientProfile.findOne({ userId: studentUser._id });
+    const profile = await StudentProfile.findOne({ userId: studentUser._id });
     if (profile) {
       profile.status = deriveStudentLifecycleStatus(profile, { assessmentState: "in-progress" });
       await profile.save();
@@ -202,7 +203,7 @@ class AssessmentAssignmentService {
     await assignment.save();
 
     // Update Lifecycle Status
-    const profile = await ClientProfile.findOne({ userId: studentUser._id });
+    const profile = await StudentProfile.findOne({ userId: studentUser._id });
     if (profile) {
       profile.status = deriveStudentLifecycleStatus(profile, { assessmentState: "completed" });
       await profile.save();
@@ -280,7 +281,7 @@ class AssessmentAssignmentService {
     }
 
     // Update Lifecycle Status to INTERVIEW_PENDING
-    const profile = await ClientProfile.findOne({ userId: assignment.studentId });
+    const profile = await StudentProfile.findOne({ userId: assignment.studentId });
     if (profile) {
       profile.status = deriveStudentLifecycleStatus(profile, { assessmentState: "completed", interviewState: "pending" });
       await profile.save();
@@ -302,9 +303,27 @@ class AssessmentAssignmentService {
 
     const query = {};
 
-    // Counselor scope
+    // Counselor scope: include assignments created by counselor OR for counselor's assigned students
     if (requestingUser.role === "counselor") {
-      query.counselorId = requestingUser._id;
+      const profiles = await StudentProfile.find({
+        $or: [
+          { assignedCounselorId: requestingUser._id },
+          { invitedBy: requestingUser._id },
+        ],
+      }).select("userId");
+      const profileUserIds = profiles.map((p) => p.userId);
+
+      const users = await User.find({ counselorId: requestingUser._id }).select("_id");
+      const userIds = users.map((u) => u._id);
+
+      const studentIds = Array.from(
+        new Set([...profileUserIds, ...userIds].map((id) => id.toString()))
+      );
+
+      query.$or = [
+        { counselorId: requestingUser._id },
+        { studentId: { $in: studentIds } },
+      ];
     }
 
     // Specific student filter
@@ -372,6 +391,8 @@ class AssessmentAssignmentService {
             timeSpentSeconds: s.timeSpentSeconds,
             startedAt: s.startedAt,
             submittedAt: s.submittedAt,
+            flagged: s.flagged || false,
+            flagReason: s.flagReason || null,
           }
         : null;
       return aObj;
@@ -415,6 +436,10 @@ class AssessmentAssignmentService {
       throw new ApiError(403, "Access denied. Counselor permissions required.");
     }
 
+    if (!assignmentId || !mongoose.Types.ObjectId.isValid(assignmentId)) {
+      throw new ApiError(400, "Invalid or missing assignment ID format.");
+    }
+
     const assignment = await AssessmentAssignment.findById(assignmentId)
       .populate("studentId", "firstName lastName email")
       .populate("counselorId", "firstName lastName email")
@@ -427,12 +452,22 @@ class AssessmentAssignmentService {
     // RBAC Check: Counselor can ONLY review assignments belonging to their own students
     if (requestingUser.role === "counselor") {
       const counselorIdStr = requestingUser._id.toString();
-      const assignmentCounselorIdStr = assignment.counselorId ? assignment.counselorId._id?.toString() || assignment.counselorId.toString() : null;
+      const assignmentCounselorIdStr = assignment.counselorId ? (assignment.counselorId._id?.toString() || assignment.counselorId.toString()) : null;
 
-      const studentUser = await User.findById(assignment.studentId._id || assignment.studentId);
+      const targetStudentId = assignment.studentId ? (assignment.studentId._id || assignment.studentId) : null;
+      const studentUser = targetStudentId ? await User.findById(targetStudentId) : null;
       const userCounselorIdStr = studentUser && studentUser.counselorId ? studentUser.counselorId.toString() : null;
 
-      if (assignmentCounselorIdStr !== counselorIdStr && userCounselorIdStr !== counselorIdStr) {
+      const profile = targetStudentId ? await StudentProfile.findOne({ userId: targetStudentId }) : null;
+      const assignedIdStr = profile && profile.assignedCounselorId ? profile.assignedCounselorId.toString() : null;
+      const invitedByIdStr = profile && profile.invitedBy ? profile.invitedBy.toString() : null;
+
+      if (
+        assignmentCounselorIdStr !== counselorIdStr &&
+        userCounselorIdStr !== counselorIdStr &&
+        assignedIdStr !== counselorIdStr &&
+        invitedByIdStr !== counselorIdStr
+      ) {
         throw new ApiError(403, "Access denied: You can only review assessment details for your own assigned students.");
       }
     }
@@ -441,7 +476,6 @@ class AssessmentAssignmentService {
     const AssessmentScore = require("./assessmentScore.model");
     const AssessmentResponse = require("./assessmentResponse.model");
     const AssessmentQuestion = require("./assessmentQuestion.model");
-    const AssessmentOption = require("./assessmentOption.model");
 
     const session = await AssessmentSession.findOne({ assignmentId: assignment._id });
 
@@ -454,19 +488,19 @@ class AssessmentAssignmentService {
       responseDoc = await AssessmentResponse.findOne({ sessionId: session._id });
 
       if (responseDoc && responseDoc.responses && responseDoc.responses.length > 0) {
-        // Fetch questions and options to build raw response map
+        // Fetch questions to build raw response map
         const questions = await AssessmentQuestion.find({
           assessmentId: assignment.assessmentDefinitionId._id,
         }).sort({ questionNumber: 1 });
 
-        const questionIds = questions.map((q) => q._id);
-        const options = await AssessmentOption.find({ questionId: { $in: questionIds } });
-
-        const optionMap = new Map();
-        for (const opt of options) {
-          const key = `${opt.questionId.toString()}:::${opt.value}`;
-          optionMap.set(key, opt.label);
-        }
+        const scaleConfig = assignment.assessmentDefinitionId?.scale || {};
+        const scaleLabels = scaleConfig.labels || {
+          "1": "Disagree Strongly",
+          "2": "Disagree a little",
+          "3": "Neither agree nor disagree",
+          "4": "Agree a little",
+          "5": "Agree Strongly",
+        };
 
         const questionMap = new Map();
         for (const q of questions) {
@@ -475,7 +509,7 @@ class AssessmentAssignmentService {
 
         rawResponsesMapped = responseDoc.responses.map((resp) => {
           const qObj = questionMap.get(resp.questionId.toString());
-          const optionLabel = optionMap.get(`${resp.questionId.toString()}:::${resp.selectedValue}`) || null;
+          const optionLabel = scaleLabels[String(resp.selectedValue)] || null;
 
           return {
             questionId: resp.questionId,

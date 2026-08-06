@@ -85,4 +85,32 @@ router.post(
   })
 );
 
+const AssessmentScore = require("../assessments/assessmentScore.model");
+
+// GET /api/v1/counselor/students/:id/assessments/ipip-neo-120/results
+router.get(
+  "/students/:id/assessments/ipip-neo-120/results",
+  restrictTo("counselor", "admin"),
+  catchAsync(async (req, res) => {
+    const studentId = req.params.id;
+    const score = await AssessmentScore.findOne({
+      $or: [{ clientId: studentId }, { studentId: studentId }],
+      $or: [{ assessmentKey: "ipip-neo-120" }, { category: "personality" }],
+    }).sort({ version: -1, calculatedAt: -1 });
+
+    if (!score) {
+      return res.status(404).json({
+        status: "fail",
+        message: "No scored IPIP-NEO-120 assessment found for this student.",
+        data: null,
+      });
+    }
+
+    res.status(200).json({
+      status: "success",
+      data: score,
+    });
+  })
+);
+
 module.exports = router;

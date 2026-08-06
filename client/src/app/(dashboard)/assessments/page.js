@@ -179,16 +179,29 @@ export default function AssessmentsPage() {
                     {def.description || "Take this assessment to build your guidance profile."}
                   </p>
 
-                  {/* Progress Bar (Real MongoDB Percentage) */}
-                  <div className="flex items-center gap-2">
-                    <div className="flex-1 h-1.5 bg-muted rounded-full overflow-hidden">
-                      <div
-                        className="h-full rounded-full transition-all duration-500 bg-primary"
-                        style={{ width: `${progress}%` }}
-                      />
+                  {/* Student View Completion Confirmation Block */}
+                  {isCompleted ? (
+                    <div className="p-3.5 rounded-lg bg-muted/40 border border-border/60 text-xs space-y-1">
+                      <div className="flex items-center gap-1.5 font-semibold text-foreground">
+                        <CheckCircle2 className="size-4 text-emerald-600 dark:text-emerald-400" />
+                        <span>Assessment Completed</span>
+                      </div>
+                      <p className="text-muted-foreground leading-relaxed">
+                        You've completed your Personality Assessment. Your counselor will go over your results with you and use them to help guide your career conversations.
+                      </p>
                     </div>
-                    <span className="text-[10px] text-muted-foreground font-medium w-8 text-right">{progress}%</span>
-                  </div>
+                  ) : (
+                    /* Progress Bar for In-Progress */
+                    <div className="flex items-center gap-2">
+                      <div className="flex-1 h-1.5 bg-muted rounded-full overflow-hidden">
+                        <div
+                          className="h-full rounded-full transition-all duration-500 bg-primary"
+                          style={{ width: `${progress}%` }}
+                        />
+                      </div>
+                      <span className="text-[10px] text-muted-foreground font-medium w-8 text-right">{progress}%</span>
+                    </div>
+                  )}
 
                   {/* Metadata Row: Assigned Date, Due Date, Estimated Time */}
                   <div className="flex items-center gap-4 flex-wrap text-xs text-muted-foreground pt-2 border-t border-border/60">

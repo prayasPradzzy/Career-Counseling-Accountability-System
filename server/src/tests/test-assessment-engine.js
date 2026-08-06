@@ -3,10 +3,9 @@ require("dotenv").config({ path: path.join(__dirname, "../../.env") });
 const mongoose = require("mongoose");
 
 const User = require("../modules/users/user.model");
-const ClientProfile = require("../modules/profiles/clientProfile.model");
+const StudentProfile = require("../modules/profiles/studentProfile.model");
 const AssessmentDefinition = require("../modules/assessments/assessmentDefinition.model");
 const AssessmentQuestion = require("../modules/assessments/assessmentQuestion.model");
-const AssessmentOption = require("../modules/assessments/assessmentOption.model");
 const { AssessmentAssignment, ASSIGNMENT_STATUS } = require("../modules/assessments/assessmentAssignment.model");
 const AssessmentSession = require("../modules/assessments/assessmentSession.model");
 const { SESSION_STATUS } = require("../modules/assessments/assessmentSession.model");
@@ -59,9 +58,9 @@ async function runAssessmentEngineTests() {
     }
 
     // Find or create Student Profile
-    let profile = await ClientProfile.findOne({ userId: student._id });
+    let profile = await StudentProfile.findOne({ userId: student._id });
     if (!profile) {
-      profile = await ClientProfile.create({
+      profile = await StudentProfile.create({
         userId: student._id,
         phone: "+1234567890",
         assignedCounselorId: counselor._id,
@@ -104,9 +103,9 @@ async function runAssessmentEngineTests() {
     console.log(`   - Status: ${assignment.status}`);
     console.log(`   - Category: ${assignment.category}`);
 
-    // Verify Lifecycle Update in ClientProfile
-    const updatedProfile1 = await ClientProfile.findOne({ userId: student._id });
-    console.log(`✅ ClientProfile Lifecycle Status updated to: ${updatedProfile1.status} (Expected: ASSESSMENT_PENDING)\n`);
+    // Verify Lifecycle Update in StudentProfile
+    const updatedProfile1 = await StudentProfile.findOne({ userId: student._id });
+    console.log(`✅ StudentProfile Lifecycle Status updated to: ${updatedProfile1.status} (Expected: ASSESSMENT_PENDING)\n`);
 
     // ------------------------------------------------------------------------
     // TEST REQUIREMENT 2: Guard — Prevent Starting Locked Assessments (Scheduled / Prerequisite)
@@ -167,8 +166,8 @@ async function runAssessmentEngineTests() {
     console.log(`✅ AssessmentAssignment status changed to: ${updatedAssignment1.status}`);
 
     // Verify Lifecycle Status changed to ASSESSMENT_IN_PROGRESS
-    const updatedProfile2 = await ClientProfile.findOne({ userId: student._id });
-    console.log(`✅ ClientProfile Lifecycle Status updated to: ${updatedProfile2.status} (Expected: ASSESSMENT_IN_PROGRESS)\n`);
+    const updatedProfile2 = await StudentProfile.findOne({ userId: student._id });
+    console.log(`✅ StudentProfile Lifecycle Status updated to: ${updatedProfile2.status} (Expected: ASSESSMENT_IN_PROGRESS)\n`);
 
     // ------------------------------------------------------------------------
     // TEST REQUIREMENT 4: Guard — Prevent Multiple Active Sessions & Duplicate Sessions
@@ -247,8 +246,8 @@ async function runAssessmentEngineTests() {
     console.log(`✅ AssessmentAssignment Status updated to: ${completedAssignment.status}`);
 
     // Verify Lifecycle Status updated to ASSESSMENT_COMPLETED
-    const updatedProfile3 = await ClientProfile.findOne({ userId: student._id });
-    console.log(`✅ ClientProfile Lifecycle Status updated to: ${updatedProfile3.status} (Expected: ASSESSMENT_COMPLETED)\n`);
+    const updatedProfile3 = await StudentProfile.findOne({ userId: student._id });
+    console.log(`✅ StudentProfile Lifecycle Status updated to: ${updatedProfile3.status} (Expected: ASSESSMENT_COMPLETED)\n`);
 
     // ------------------------------------------------------------------------
     // TEST REQUIREMENT 7: Verify ALL 4 MongoDB Collections Wrote Correctly
@@ -340,8 +339,8 @@ async function runAssessmentEngineTests() {
     console.log(`✅ Assessment status updated to: ${approvedAssignment.status} (Expected: APPROVED)`);
 
     // Verify Lifecycle Status updated to INTERVIEW_PENDING
-    const updatedProfile4 = await ClientProfile.findOne({ userId: student._id });
-    console.log(`✅ ClientProfile Lifecycle Status updated to: ${updatedProfile4.status} (Expected: INTERVIEW_PENDING)`);
+    const updatedProfile4 = await StudentProfile.findOne({ userId: student._id });
+    console.log(`✅ StudentProfile Lifecycle Status updated to: ${updatedProfile4.status} (Expected: INTERVIEW_PENDING)`);
 
     // Verify Next Assessment Unlocked (Auto-created assignment)
     const unlockedNext = await AssessmentAssignment.find({
@@ -356,7 +355,7 @@ async function runAssessmentEngineTests() {
     await AssessmentResponse.deleteMany({ clientId: student._id });
     await AssessmentScore.deleteMany({ clientId: student._id });
     await User.deleteMany({ email: { $in: ["test_counselor_suite@example.com", "test_student_suite@example.com"] } });
-    await ClientProfile.deleteMany({ userId: student._id });
+    await StudentProfile.deleteMany({ userId: student._id });
 
     console.log("\n==========================================================================");
     console.log("           🎉 ALL ASSESSMENT & COUNSELOR REVIEW TESTS PASSED!             ");

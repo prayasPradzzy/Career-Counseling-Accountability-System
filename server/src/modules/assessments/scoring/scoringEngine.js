@@ -46,7 +46,10 @@ class ScoringEngine {
     }
 
     // 5. Resolve Scoring Strategy via Registry
-    const strategyName = definition.scoringStrategy || "likert_sum";
+    const strategyName =
+      definition.code === "IPIP_NEO_120" || definition.scoringStrategy === "ipip_neo_120"
+        ? "ipip_neo_120"
+        : (definition.scoringStrategy || "likert_sum");
     const strategy = scoringRegistry.getStrategy(strategyName);
 
     // 6. Execute Strategy Pipeline
@@ -68,15 +71,20 @@ class ScoringEngine {
     // 8. Create or Update AssessmentScore document
     const scoreDoc = await AssessmentScore.create({
       sessionId: session._id,
+      studentId: session.clientId,
       clientId: session.clientId,
       assessmentDefinitionId: definition._id,
       category: definition.category,
+      assessmentKey: scorePayload.assessmentKey || "ipip-neo-120",
       scoringStrategy: scorePayload.scoringStrategy,
-      dimensionScores: scorePayload.dimensionScores,
+      facetScores: scorePayload.facetScores || [],
+      domainScores: scorePayload.domainScores || scorePayload.dimensionScores || [],
+      dimensionScores: scorePayload.dimensionScores || scorePayload.domainScores || [],
       overallCode: scorePayload.overallCode,
       overallScore: scorePayload.overallScore,
       version,
       calculatedAt: new Date(),
+      computedAt: new Date(),
       metadata: scorePayload.metadata || {},
     });
 

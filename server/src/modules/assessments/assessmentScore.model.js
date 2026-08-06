@@ -6,34 +6,45 @@ const { defaultSchemaOptions } = require("../../shared/utils/schema.utils");
 // ============================================================
 // Stores computed scores derived from raw AssessmentResponse
 // data. Supports domain-level and facet-level breakdowns.
-//
-// scoringStrategy records which algorithm produced these scores.
-// version enables re-scoring: if the strategy is updated,
-// a new AssessmentScore with version+1 can be created while
-// preserving the original.
-//
-// metadata allows storing assessment-specific computed data
-// (e.g., confidence intervals, norm group comparisons).
 // ============================================================
 
 const facetScoreSchema = new mongoose.Schema(
   {
-    // Facet name (e.g., "Friendliness", "Assertiveness")
+    // Facet code identifier (e.g., "N1", "E3")
+    facet: {
+      type: String,
+      default: "",
+    },
+
+    // Facet display name (e.g., "Anxiety", "Assertiveness")
     facetName: {
       type: String,
       required: true,
     },
 
-    // Raw summed score for this facet
+    // Domain code identifier (e.g., "N", "E", "O", "A", "C")
+    domain: {
+      type: String,
+      default: "",
+    },
+
+    // Raw/Average calculated score for this facet (1.0 - 5.0 scale or weighted sum)
     rawScore: {
       type: Number,
       required: true,
     },
 
-    // Normalized score (0–100)
+    // Descriptive band ("Low" | "Moderate" | "High")
+    band: {
+      type: String,
+      enum: ["Low", "Moderate", "High", ""],
+      default: "",
+    },
+
+    // Normalized score (0–100 scale)
     normalizedScore: {
       type: Number,
-      required: true,
+      default: 0,
     },
 
     // Percentile rank
@@ -42,7 +53,7 @@ const facetScoreSchema = new mongoose.Schema(
       default: 0,
     },
 
-    // Qualitative interpretation (e.g., "High", "Medium", "Low")
+    // Qualitative interpretation level
     qualitativeLevel: {
       type: String,
       default: "",
@@ -53,22 +64,53 @@ const facetScoreSchema = new mongoose.Schema(
 
 const dimensionScoreSchema = new mongoose.Schema(
   {
-    // Domain/dimension name (e.g., "Extraversion", "Realistic")
+    // Domain code identifier (e.g., "O", "C", "E", "A", "N")
+    domain: {
+      type: String,
+      default: "",
+    },
+
+    // Domain/dimension name (e.g., "Openness", "Extraversion")
     dimensionName: {
       type: String,
       required: true,
     },
 
-    // Raw summed score for this dimension
+    // Alias for dimensionName for direct schema alignment
+    domainName: {
+      type: String,
+      default: "",
+    },
+
+    // Calculated average score for this domain (1.0 - 5.0 scale)
+    score: {
+      type: Number,
+      default: 0,
+    },
+
+    // Raw score
     rawScore: {
       type: Number,
       required: true,
     },
 
+    // Descriptive band ("Low" | "Moderate" | "High")
+    band: {
+      type: String,
+      enum: ["Low", "Moderate", "High", ""],
+      default: "",
+    },
+
+    // Short plain-language counselor interpretation derived from static config
+    interpretation: {
+      type: String,
+      default: "",
+    },
+
     // Normalized score (0–100)
     normalizedScore: {
       type: Number,
-      required: true,
+      default: 0,
     },
 
     // Percentile rank
@@ -96,15 +138,26 @@ const assessmentScoreSchema = new mongoose.Schema(
       type: mongoose.Schema.Types.ObjectId,
       ref: "AssessmentSession",
       required: true,
-      index: true,
     },
 
-    // Student these scores belong to
+    // Student these scores belong to (primary alias)
+    studentId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+    },
+
+    // Student these scores belong to (backwards-compatible alias)
     clientId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "User",
       required: true,
-      index: true,
+    },
+
+    // Unique key identifying the assessment instrument (e.g. "ipip-neo-120")
+    assessmentKey: {
+      type: String,
+      default: "ipip-neo-120",
+      trim: true,
     },
 
     // Which assessment definition
@@ -112,7 +165,6 @@ const assessmentScoreSchema = new mongoose.Schema(
       type: mongoose.Schema.Types.ObjectId,
       ref: "AssessmentDefinition",
       required: true,
-      index: true,
     },
 
     // Assessment category
@@ -120,20 +172,25 @@ const assessmentScoreSchema = new mongoose.Schema(
       type: String,
       enum: ["personality", "interest", "values", "intelligence", "aptitude"],
       required: true,
-      index: true,
     },
 
     // Which scoring algorithm was used
     scoringStrategy: {
       type: String,
-      default: "likert_sum",
+      default: "ipip_neo_120",
       trim: true,
     },
 
-    // Domain-level dimension scores with nested facet breakdowns
+    // Flat list of all 30 facet scores
+    facetScores: [facetScoreSchema],
+
+    // Top-level domain scores list
+    domainScores: [dimensionScoreSchema],
+
+    // Domain-level dimension scores with nested facet breakdowns (backwards compatible)
     dimensionScores: [dimensionScoreSchema],
 
-    // Summary code (e.g., "RIA" for Holland, "OCEAN" profile code)
+    // Summary code (e.g., "O:HIGH | C:HIGH | E:MED | A:HIGH | N:LOW")
     overallCode: {
       type: String,
       trim: true,
@@ -158,8 +215,13 @@ const assessmentScoreSchema = new mongoose.Schema(
       default: Date.now,
     },
 
-    // Extensible metadata (norm group comparisons, confidence
-    // intervals, algorithm parameters, etc.)
+    // Explicit alias for calculatedAt
+    computedAt: {
+      type: Date,
+      default: Date.now,
+    },
+
+    // Extensible metadata
     metadata: {
       type: mongoose.Schema.Types.Mixed,
       default: {},
@@ -168,10 +230,9 @@ const assessmentScoreSchema = new mongoose.Schema(
   defaultSchemaOptions
 );
 
-// Index for retrieving client scores by category
+// Indexes
 assessmentScoreSchema.index({ clientId: 1, category: 1 });
-
-// Index for versioned scores per session
+assessmentScoreSchema.index({ studentId: 1, category: 1 });
 assessmentScoreSchema.index({ sessionId: 1, version: 1 });
 
 const AssessmentScore = mongoose.model(

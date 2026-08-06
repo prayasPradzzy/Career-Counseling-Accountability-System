@@ -46,6 +46,26 @@ export default function StudentAssessmentRunner({ sessionId, onBack }) {
   const [timeSpent, setTimeSpent] = useState(0);
   const [isSubmittingModalOpen, setIsSubmittingModalOpen] = useState(false);
 
+  // Refs for sticky header height measurement and first-question scroll target
+  const headerRef = useRef(null);
+  const firstQuestionRef = useRef(null);
+
+  // Scroll to the first question of the current section, offset by sticky header height
+  const scrollToFirstQuestion = useCallback(() => {
+    // Use requestAnimationFrame to wait for DOM to paint the new section
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        const el = firstQuestionRef.current;
+        if (!el) return;
+        const headerHeight = headerRef.current?.offsetHeight ?? 120;
+        // 64px topbar offset + sticky header height + 16px buffer
+        const totalOffset = 64 + headerHeight + 16;
+        const top = el.getBoundingClientRect().top + window.scrollY - totalOffset;
+        window.scrollTo({ top: Math.max(0, top), behavior: "smooth" });
+      });
+    });
+  }, []);
+
   const session = stateData?.data?.session;
   const definition = session?.assessmentDefinitionId;
 
@@ -301,8 +321,11 @@ export default function StudentAssessmentRunner({ sessionId, onBack }) {
   if (viewMode === "RUNNER") {
     return (
       <div className="max-w-4xl mx-auto space-y-6 pb-12">
-        {/* Sticky Header with Progress Bar & Section Indicators */}
-        <div className="sticky top-4 z-20 bg-background/95 backdrop-blur border border-border/80 rounded-xl p-4 shadow-md space-y-3">
+        {/* Sticky Header — sits flush below the app top nav bar */}
+        <div
+          ref={headerRef}
+          className="sticky top-16 z-20 bg-background/95 backdrop-blur border border-border/80 rounded-xl p-4 shadow-md space-y-3"
+        >
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
             <div>
               <h3 className="font-bold text-base flex items-center gap-2">
@@ -364,7 +387,10 @@ export default function StudentAssessmentRunner({ sessionId, onBack }) {
                 return (
                   <button
                     key={sec.id}
-                    onClick={() => setActiveSectionIndex(idx)}
+                    onClick={() => {
+                      setActiveSectionIndex(idx);
+                      scrollToFirstQuestion();
+                    }}
                     className={`px-3 py-1.5 rounded-md text-xs font-semibold shrink-0 transition-colors flex items-center gap-1.5 border ${
                       isActive
                         ? "bg-primary text-primary-foreground border-primary"
@@ -398,15 +424,17 @@ export default function StudentAssessmentRunner({ sessionId, onBack }) {
 
         {/* Questions List (Rendered dynamically from backend) */}
         <div className="space-y-4">
-          {currentSectionQuestions.map((q) => {
+          {currentSectionQuestions.map((q, qIdx) => {
             const isAnswered = answers[q.id] !== undefined && answers[q.id] !== null;
             const isFocused = focusedQuestionId === q.id;
 
             return (
               <Card
                 key={q.id}
+                ref={qIdx === 0 ? firstQuestionRef : undefined}
                 tabIndex={0}
                 onFocus={() => setFocusedQuestionId(q.id)}
+                style={{ scrollMarginTop: `calc(64px + ${headerRef.current?.offsetHeight ?? 120}px + 16px)` }}
                 className={`transition-all border ${
                   isFocused
                     ? "ring-2 ring-primary/40 border-primary shadow-sm"
@@ -465,7 +493,10 @@ export default function StudentAssessmentRunner({ sessionId, onBack }) {
           <Button
             variant="outline"
             disabled={activeSectionIndex === 0}
-            onClick={() => setActiveSectionIndex((prev) => Math.max(0, prev - 1))}
+            onClick={() => {
+              setActiveSectionIndex((prev) => Math.max(0, prev - 1));
+              scrollToFirstQuestion();
+            }}
           >
             <ArrowLeft className="mr-2 size-4" /> Previous Section
           </Button>
@@ -473,7 +504,10 @@ export default function StudentAssessmentRunner({ sessionId, onBack }) {
           {activeSectionIndex < sections.length - 1 ? (
             <Button
               className="font-semibold px-6"
-              onClick={() => setActiveSectionIndex((prev) => Math.min(sections.length - 1, prev + 1))}
+              onClick={() => {
+                setActiveSectionIndex((prev) => Math.min(sections.length - 1, prev + 1));
+                scrollToFirstQuestion();
+              }}
             >
               Next Section <ArrowRight className="ml-2 size-4" />
             </Button>

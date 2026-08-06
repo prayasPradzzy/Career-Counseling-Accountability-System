@@ -1,6 +1,6 @@
 const ApiError = require("../utils/ApiError");
 const User = require("../../modules/users/user.model");
-const ClientProfile = require("../../modules/profiles/clientProfile.model");
+const StudentProfile = require("../../modules/profiles/studentProfile.model");
 
 /**
  * Scoping Middleware: scopeToOwnStudents
@@ -81,8 +81,8 @@ const verifyCounselorStudentOwnership = async (requestingUser, studentUserIdOrPr
     }
   }
 
-  // Try checking ClientProfile document
-  const clientProfile = await ClientProfile.findOne({
+  // Try checking StudentProfile document
+  const clientProfile = await StudentProfile.findOne({
     $or: [{ _id: studentUserIdOrProfileId }, { userId: studentUserIdOrProfileId }],
   });
 

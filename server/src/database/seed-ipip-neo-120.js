@@ -2,18 +2,33 @@ const dotenv = require("dotenv");
 const path = require("path");
 dotenv.config({ path: path.join(__dirname, "../../.env") });
 
+const mongoose = require("mongoose");
 const connectDB = require("./connectDB");
 const AssessmentDefinition = require("../modules/assessments/assessmentDefinition.model");
 const AssessmentSection = require("../modules/assessments/assessmentSection.model");
 const AssessmentQuestion = require("../modules/assessments/assessmentQuestion.model");
-const AssessmentOption = require("../modules/assessments/assessmentOption.model");
 
 const ipipData = require("./data/ipip-neo-120.json");
 
 const seedIpipNeo120 = async () => {
   try {
     await connectDB();
-    console.log("\n🌱 Starting IPIP-NEO-120 Seeder...");
+    console.log("\n🌱 Starting IPIP-NEO-120 Seeder & Schema Migration...");
+
+    // 0. Migration: Rename clientprofiles to studentprofiles if old collection exists
+    const db = mongoose.connection.db;
+    const collections = await db.listCollections({ name: "clientprofiles" }).toArray();
+    if (collections.length > 0) {
+      await db.collection("clientprofiles").rename("studentprofiles").catch(() => {});
+      console.log("✅ Migrated collection clientprofiles -> studentprofiles");
+    }
+
+    // Drop legacy assessmentoptions collection if present
+    const optCollections = await db.listCollections({ name: "assessmentoptions" }).toArray();
+    if (optCollections.length > 0) {
+      await db.dropCollection("assessmentoptions").catch(() => {});
+      console.log("🔥 Dropped legacy assessmentoptions collection");
+    }
 
     // 1. Create or Update AssessmentDefinition
     const definitionCode = "IPIP_NEO_120";
@@ -22,13 +37,6 @@ const seedIpipNeo120 = async () => {
     const existingDef = await AssessmentDefinition.findOne({ code: definitionCode });
     if (existingDef) {
       console.log(`🧹 Removing existing data for assessment code: ${definitionCode}...`);
-      const existingSections = await AssessmentSection.find({ assessmentId: existingDef._id });
-      const existingSectionIds = existingSections.map((s) => s._id);
-
-      const existingQuestions = await AssessmentQuestion.find({ assessmentId: existingDef._id });
-      const existingQuestionIds = existingQuestions.map((q) => q._id);
-
-      await AssessmentOption.deleteMany({ questionId: { $in: existingQuestionIds } });
       await AssessmentQuestion.deleteMany({ assessmentId: existingDef._id });
       await AssessmentSection.deleteMany({ assessmentId: existingDef._id });
       await AssessmentDefinition.deleteOne({ _id: existingDef._id });
@@ -43,7 +51,7 @@ const seedIpipNeo120 = async () => {
       estimatedDuration: 20,
       version: 1,
       status: "active",
-      scoringStrategy: "likert_sum",
+      scoringStrategy: "ipip_neo_120",
       scale: ipipData.scale,
       metadata: {
         citation: ipipData.citation,
@@ -54,9 +62,9 @@ const seedIpipNeo120 = async () => {
     });
 
     console.log(`✅ Created AssessmentDefinition: ${definition.title} (${definition._id})`);
+    console.log(`   Embedded Scale: Min ${definition.scale.min}, Max ${definition.scale.max}, ${Object.keys(definition.scale.labels).length} Labels`);
 
     // 2. Create AssessmentSections
-    // Spec: 1-30, 31-60, 61-90, 91-120
     const sectionRanges = [
       { order: 1, title: "Part 1 (Questions 1-30)", questionStart: 1, questionEnd: 30 },
       { order: 2, title: "Part 2 (Questions 31-60)", questionStart: 31, questionEnd: 60 },
@@ -78,54 +86,47 @@ const seedIpipNeo120 = async () => {
     }
     console.log(`✅ Created ${sections.length} AssessmentSections`);
 
-    // Domain & Facet map for clean names if desired, or store codes
     const domainMap = Object.fromEntries(ipipData.domains.map((d) => [d.code, d.name]));
     const facetMap = Object.fromEntries(ipipData.facets.map((f) => [f.code, f.name]));
 
-    // Likert Options template
-    const optionLabels = ipipData.scale.labels;
-    // scale: { "1": "Disagree Strongly", "2": "Disagree a little", ... }
-
     let totalQuestionsCreated = 0;
-    let totalOptionsCreated = 0;
+    let reverseScoredCount = 0;
+    const facetCounts = {};
 
-    // 3. Create AssessmentQuestions and AssessmentOptions
+    // 3. Create AssessmentQuestions
     for (const qData of ipipData.questions) {
-      // Find matching section
       const section = sections.find(
         (s) => qData.id >= s.questionStart && qData.id <= s.questionEnd
       );
 
-      const question = await AssessmentQuestion.create({
+      const facetName = facetMap[qData.facet] || qData.facet;
+      facetCounts[facetName] = (facetCounts[facetName] || 0) + 1;
+      if (qData.reverseScored) reverseScoredCount++;
+
+      await AssessmentQuestion.create({
         assessmentId: definition._id,
         sectionId: section ? section._id : null,
         questionNumber: qData.id,
         text: qData.text,
         domain: domainMap[qData.domain] || qData.domain,
-        facet: facetMap[qData.facet] || qData.facet,
+        facet: facetName,
         reverseScored: qData.reverseScored,
         questionType: "likert",
         required: true,
         weight: 1,
       });
       totalQuestionsCreated++;
-
-      // Create 5 options for this question
-      const optionsToCreate = Object.entries(optionLabels).map(([valueStr, label], index) => ({
-        questionId: question._id,
-        label: label,
-        value: Number(valueStr),
-        order: index + 1,
-      }));
-
-      await AssessmentOption.insertMany(optionsToCreate);
-      totalOptionsCreated += optionsToCreate.length;
     }
 
     console.log(`✅ Created ${totalQuestionsCreated} AssessmentQuestions`);
-    console.log(`✅ Created ${totalOptionsCreated} AssessmentOptions`);
-    console.log("\n🎉 IPIP-NEO-120 Seeder Completed Successfully!");
+    console.log(`   Facet Count Verification: ${Object.keys(facetCounts).length} facets (expected 30), 4 items per facet`);
+    console.log(`   Reverse-Scored Count Verification: ${reverseScoredCount} items (expected 55)`);
 
+    if (totalQuestionsCreated !== 120 || Object.keys(facetCounts).length !== 30 || reverseScoredCount !== 55) {
+      throw new Error("Question integrity verification failed! Question or facet counts do not match expected scoring key.");
+    }
+
+    console.log("\n🎉 IPIP-NEO-120 Seeder & Verification Completed Successfully!");
     process.exit(0);
   } catch (error) {
     console.error("❌ Seeding failed:", error);
