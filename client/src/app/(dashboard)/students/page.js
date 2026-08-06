@@ -92,15 +92,19 @@ export default function StudentsPage() {
       <PageHeader
         title="Students Directory"
         subtitle="Manage student registrations, counselor guidance, and lifecycle progression."
-        actions={[
-          {
-            id: "register-student-btn",
-            label: "Register Student",
-            href: ROUTES.STUDENT_NEW,
-            variant: "default",
-            iconName: "Plus",
-          },
-        ]}
+        actions={
+          isAdmin
+            ? [
+                {
+                  id: "register-student-btn",
+                  label: "Register Student",
+                  href: ROUTES.STUDENT_NEW,
+                  variant: "default",
+                  iconName: "Plus",
+                },
+              ]
+            : []
+        }
       />
 
       {/* Filter & View Switcher Bar */}
@@ -195,14 +199,19 @@ export default function StudentsPage() {
           {viewMode === "table" ? (
             <StudentTable
               students={students}
-              onDelete={(s) => setStudentToDelete(s)}
+              onDelete={isAdmin ? (s) => setStudentToDelete(s) : undefined}
               onTransferOwnership={isAdmin ? (s) => setStudentToTransfer(s) : undefined}
               isAdmin={isAdmin}
             />
           ) : (
             <WidgetGrid cols={{ default: 1, md: 2, lg: 3 }}>
               {students.map((s) => (
-                <StudentCard key={s.id || s._id} student={s} onDelete={(item) => setStudentToDelete(item)} />
+                <StudentCard
+                  key={s.id || s._id}
+                  student={s}
+                  onDelete={isAdmin ? (item) => setStudentToDelete(item) : undefined}
+                  isAdmin={isAdmin}
+                />
               ))}
             </WidgetGrid>
           )}
@@ -242,14 +251,16 @@ export default function StudentsPage() {
       ) : (
         <EmptyIllustration
           iconName="GraduationCap"
-          title={hasActiveFilters ? "No Students Found" : "No Students Yet"}
+          title={hasActiveFilters ? "No Students Found" : "No Students Assigned Yet"}
           description={
             hasActiveFilters
               ? "No student records matched your filter criteria."
-              : "Invite your first student"
+              : isAdmin
+              ? "Register or invite your first student."
+              : "Students assigned to you by an administrator will appear here."
           }
-          actionLabel={hasActiveFilters ? "Clear Filters" : "Register Student"}
-          actionHref={hasActiveFilters ? undefined : ROUTES.STUDENT_NEW}
+          actionLabel={hasActiveFilters ? "Clear Filters" : isAdmin ? "Register Student" : undefined}
+          actionHref={hasActiveFilters ? undefined : isAdmin ? ROUTES.STUDENT_NEW : undefined}
           onAction={
             hasActiveFilters
               ? () => {
@@ -276,20 +287,22 @@ export default function StudentsPage() {
         />
       )}
 
-      {/* Archive / Delete Confirmation Dialog */}
-      <DeleteDialog
-        open={Boolean(studentToDelete)}
-        onOpenChange={(open) => !open && setStudentToDelete(null)}
-        title="Archive Student Profile"
-        itemName={
-          studentToDelete?.userId
-            ? `${studentToDelete.userId.firstName} ${studentToDelete.userId.lastName}`
-            : "this student profile"
-        }
-        description="Are you sure you want to archive this student profile? The record will be soft-deleted."
-        onDelete={handleDeleteConfirm}
-        isDeleting={deleteStudentMutation.isPending}
-      />
+      {/* Archive / Delete Confirmation Dialog (Admin Only) */}
+      {isAdmin && (
+        <DeleteDialog
+          open={Boolean(studentToDelete)}
+          onOpenChange={(open) => !open && setStudentToDelete(null)}
+          title="Archive Student Profile"
+          itemName={
+            studentToDelete?.userId
+              ? `${studentToDelete.userId.firstName} ${studentToDelete.userId.lastName}`
+              : "this student profile"
+          }
+          description="Are you sure you want to archive this student profile? The record will be soft-deleted."
+          onDelete={handleDeleteConfirm}
+          isDeleting={deleteStudentMutation.isPending}
+        />
+      )}
     </div>
   );
 }

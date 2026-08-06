@@ -1,6 +1,7 @@
 const crypto = require("crypto");
 const ClientProfile = require("../profiles/clientProfile.model");
 const User = require("../users/user.model");
+const InviteCode = require("../auth/inviteCode.model");
 const ApiError = require("../../shared/utils/ApiError");
 const {
   STUDENT_STATUS,
@@ -58,24 +59,22 @@ class ClientService {
     }
 
     const initialCompletion = calculateProfileCompletion({ phone, dateOfBirth, gender, education, careerGoals, skills });
-    const initialStatus = deriveStudentLifecycleStatus(null, { completionPercentage: initialCompletion });
 
-    const clientProfile = await ClientProfile.create({
+    const profile = await ClientProfile.create({
       userId,
-      onboardingSource: "self-signup",
       phone,
       dateOfBirth,
-      gender,
+      gender: gender || "prefer-not-to-say",
       education: education || [],
       careerGoals: careerGoals || [],
       targetIndustries: targetIndustries || [],
       skills: skills || [],
       languages: languages || [],
       guardianInfo,
-      status: initialStatus,
+      status: STUDENT_STATUS.REGISTERED,
     });
 
-    const populated = await ClientProfile.findById(clientProfile._id)
+    const populated = await ClientProfile.findById(profile._id)
       .populate("userId", "firstName lastName email role")
       .populate("assignedCounselorId", "firstName lastName email");
 
@@ -146,6 +145,17 @@ class ClientService {
       status: initialStatus,
     });
 
+    // Also register InviteCode document
+    await InviteCode.create({
+      code: invitationToken.toUpperCase(),
+      type: "student-invite",
+      ownerId: counselorAssignment || requestingUser._id,
+      ownerRole: "counselor",
+      expiresAt: invitationExpiresAt,
+      maxUses: 1,
+      usedCount: 0,
+    });
+
     const populated = await ClientProfile.findById(studentRecord._id)
       .populate("invitedBy", "firstName lastName email role")
       .populate("assignedCounselorId", "firstName lastName email");
@@ -189,6 +199,7 @@ class ClientService {
       email: profile.invitedEmail,
       password,
       role: "student",
+      counselorId: profile.assignedCounselorId || profile.invitedBy,
       isActivated: true,
       activatedAt: new Date(),
     });
@@ -259,6 +270,18 @@ class ClientService {
       throw new ApiError(403, "Access denied. You can only view your own student profile.");
     }
 
+    // RBAC Check: Counselor can ONLY view their own assigned students
+    if (requestingUser.role === "counselor") {
+      const counselorIdStr = requestingUser._id.toString();
+      const assignedId = profile.assignedCounselorId ? profile.assignedCounselorId._id?.toString() || profile.assignedCounselorId.toString() : null;
+      const invitedById = profile.invitedBy ? profile.invitedBy._id?.toString() || profile.invitedBy.toString() : null;
+      const userCounselorId = profile.userId && profile.userId.counselorId ? profile.userId.counselorId.toString() : null;
+
+      if (assignedId !== counselorIdStr && invitedById !== counselorIdStr && userCounselorId !== counselorIdStr) {
+        throw new ApiError(403, "Access denied: You can only access your own assigned students.");
+      }
+    }
+
     profileObj.completionPercentage = calculateProfileCompletion(profileObj);
     profileObj.lifecycleStatus = deriveStudentLifecycleStatus(profileObj);
 
@@ -267,6 +290,7 @@ class ClientService {
 
   /**
    * List Students with Pagination, Search, and Status Filters
+   * Hard Enforced Scoping: Counselor ONLY receives their own assigned students.
    */
   async getClients(query, requestingUser) {
     const page = parseInt(query.page, 10) || 1;
@@ -275,9 +299,19 @@ class ClientService {
 
     const filter = { status: { $ne: "archived" } };
 
-    // Counselors can view assigned students or all if requested
-    if (requestingUser.role === "counselor" && query.assignedOnly === "true") {
-      filter.assignedCounselorId = requestingUser._id;
+    // HARD BOUNDARY: Counselors ONLY see their own assigned students
+    if (requestingUser.role === "counselor") {
+      const myStudents = await User.find({ counselorId: requestingUser._id, role: "student" }).select("_id");
+      const myStudentUserIds = myStudents.map((s) => s._id);
+
+      filter.$and = filter.$and || [];
+      filter.$and.push({
+        $or: [
+          { assignedCounselorId: requestingUser._id },
+          { invitedBy: requestingUser._id },
+          { userId: { $in: myStudentUserIds } },
+        ],
+      });
     }
 
     if (query.status && query.status !== "ALL") {
@@ -292,17 +326,25 @@ class ClientService {
       }).select("_id");
 
       searchUserIds = matchedUsers.map((u) => u._id);
-      filter.$or = [
-        { userId: { $in: searchUserIds } },
-        { invitedFirstName: searchRegex },
-        { invitedLastName: searchRegex },
-        { invitedEmail: searchRegex },
-      ];
+      const searchClause = {
+        $or: [
+          { userId: { $in: searchUserIds } },
+          { invitedFirstName: searchRegex },
+          { invitedLastName: searchRegex },
+          { invitedEmail: searchRegex },
+        ],
+      };
+
+      if (filter.$and) {
+        filter.$and.push(searchClause);
+      } else {
+        filter.$or = searchClause.$or;
+      }
     }
 
     const [clients, total] = await Promise.all([
       ClientProfile.find(filter)
-        .populate("userId", "firstName lastName email role")
+        .populate("userId", "firstName lastName email role counselorId")
         .populate("assignedCounselorId", "firstName lastName email")
         .populate("invitedBy", "firstName lastName email role")
         .skip(skip)

@@ -4,7 +4,7 @@ import { useState } from "react";
 import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useSearchParams, useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { Eye, EyeOff, Loader2, UserPlus } from "lucide-react";
 
@@ -35,6 +35,9 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 export function SignupForm() {
   const { signup, isSigningUp } = useAuth();
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const initialCode = searchParams?.get("code") || "";
+
   const [showPassword, setShowPassword] = useState(false);
   const [serverError, setServerError] = useState("");
 
@@ -42,6 +45,8 @@ export function SignupForm() {
     register,
     handleSubmit,
     control,
+    watch,
+    setValue,
     formState: { errors, isSubmitting },
   } = useForm({
     resolver: zodResolver(signupSchema),
@@ -52,9 +57,11 @@ export function SignupForm() {
       password: "",
       confirmPassword: "",
       role: "student",
+      code: initialCode,
     },
   });
 
+  const selectedRole = watch("role");
   const isLoading = isSigningUp || isSubmitting;
 
   const onSubmit = async (values) => {
@@ -66,7 +73,7 @@ export function SignupForm() {
       router.push(ROUTES.LOGIN);
     } catch (err) {
       const errorMessage =
-        err?.message || "Failed to create account. Please check your information.";
+        err?.response?.data?.message || err?.message || "Failed to create account. Please check your information.";
       setServerError(errorMessage);
       toast.error(errorMessage);
     }
@@ -170,6 +177,24 @@ export function SignupForm() {
               </p>
             )}
           </div>
+
+          {(selectedRole === "student" || selectedRole === "parent") && (
+            <div className="space-y-2">
+              <Label htmlFor="code">Counselor Invite Code *</Label>
+              <Input
+                id="code"
+                placeholder="Enter your invite code"
+                disabled={isLoading}
+                {...register("code")}
+                className={errors.code ? "border-destructive font-mono uppercase" : "font-mono uppercase"}
+              />
+              {errors.code && (
+                <p className="text-xs font-medium text-destructive">
+                  {errors.code.message}
+                </p>
+              )}
+            </div>
+          )}
 
           <div className="space-y-2">
             <Label htmlFor="password">Password</Label>

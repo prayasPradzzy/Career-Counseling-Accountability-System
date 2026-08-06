@@ -21,7 +21,7 @@ export const dashboardService = {
       (s) => s.status === "SCHEDULED" || s.status === "CONFIRMED"
     );
 
-    const completionPercentage = profile?.completionPercentage || (user ? 80 : 0);
+    const completionPercentage = profile?.completenessPercentage ?? profile?.completionPercentage ?? 0;
     const lifecycleStatus = (profile?.status || "REGISTERED").replace(/_/g, " ");
 
     const stats = [
@@ -90,6 +90,7 @@ export const dashboardService = {
       latestReports: reports,
       recommendations: [],
       pendingTasks: [],
+      profileCompleteness: completionPercentage,
     };
   },
 

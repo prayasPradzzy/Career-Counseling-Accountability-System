@@ -19,6 +19,9 @@ export const API_ENDPOINTS = {
     CONSENT: (id) => `/clients/${id}/consent`,
     SESSIONS: (id) => `/clients/${id}/sessions`,
   },
+  COUNSELOR: {
+    MY_COUNSELOR: "/counselor/my-counselor",
+  },
 };
 
 export default API_ENDPOINTS;

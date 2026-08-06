@@ -71,6 +71,9 @@ app.use(cookieParser());
 
 const authRoutes = require("./modules/auth/auth.routes");
 const clientRoutes = require("./modules/clients/client.routes");
+const profileRoutes = require("./modules/profiles/profile.routes");
+const counselorRoutes = require("./modules/counselors/counselor.routes");
+const adminRoutes = require("./modules/admin/admin.routes");
 const assessmentAssignmentRoutes = require("./modules/assessments/assessmentAssignment.routes");
 const assessmentSessionRoutes = require("./modules/assessments/assessmentSession.routes");
 const assessmentDefinitionRoutes = require("./modules/assessments/assessmentDefinition.routes");
@@ -93,6 +96,14 @@ app.get("/api/v1/health", (req, res) => {
 // Mount feature routes
 app.use("/api/v1/auth", authRoutes);
 app.use("/api/v1/clients", clientRoutes);
+app.use("/api/v1/profile", profileRoutes);
+app.use("/api/profile", profileRoutes);
+app.use("/api/v1/counselor", counselorRoutes);
+app.use("/api/counselor", counselorRoutes);
+app.use("/api/v1/counselors", counselorRoutes);
+app.use("/api/counselors", counselorRoutes);
+app.use("/api/v1/admin", adminRoutes);
+app.use("/api/admin", adminRoutes);
 app.use("/api/v1/assessment-definitions", assessmentDefinitionRoutes);
 app.use("/api/v1/assessments/sessions", assessmentSessionRoutes);
 app.use("/api/v1/assessments", assessmentAssignmentRoutes);

@@ -11,7 +11,7 @@ const ROUTE_LABELS = {
   students: "Students",
   new: "Register Student",
   sessions: "Sessions",
-  counselors: "Counselors",
+  counselors: "My Counselor",
   assessments: "Assessments",
   profile: "Profile",
   settings: "Settings",

@@ -4,6 +4,7 @@ import { useAuth } from "@/context/AuthContext";
 import { useQuery } from "@tanstack/react-query";
 import { useMyAssignments, useCounselorAssignments } from "@/features/assessments/hooks/useAssessmentAssignments";
 import { clientService } from "@/services/client.service";
+import { profileService } from "@/services/profile.service";
 import { dashboardService } from "@/services/dashboard.service";
 import { ROLE_DASHBOARD_META, DEFAULT_DASHBOARD_META } from "@/constants/dashboard";
 import { ROLES } from "@/constants/roles";
@@ -45,7 +46,7 @@ export default function DashboardPage() {
 
   const { data: profileRes, isLoading: profileLoading } = useQuery({
     queryKey: ["dashboard-my-profile", user?._id],
-    queryFn: () => clientService.getClientProfile(user?._id),
+    queryFn: () => profileService.getMyProfile(),
     enabled: Boolean(user?._id) && (isStudent || isParent),
   });
 
@@ -74,7 +75,9 @@ export default function DashboardPage() {
   const studentAssignments = studentAssignmentsRes?.data?.assignments || [];
   const counselorAssignments = counselorAssignmentsRes?.data?.assignments || [];
   const clients = clientsRes?.data?.clients || clientsRes?.clients || [];
-  const profile = profileRes?.data?.client || profileRes?.client || {};
+  const profileData = profileRes?.data || {};
+  const profile = profileData.profile || profileRes?.data?.client || profileRes?.client || {};
+  const completenessPercentage = profileData.completenessPercentage;
   const sessions = sessionsRes?.data?.sessions || sessionsRes?.sessions || [];
   const reports = [];
 
@@ -84,7 +87,7 @@ export default function DashboardPage() {
   if (isStudent) {
     dashboardData = dashboardService.computeStudentMetrics({
       user,
-      profile,
+      profile: { ...profile, completenessPercentage },
       assignments: studentAssignments,
       sessions,
       reports,
@@ -129,7 +132,7 @@ export default function DashboardPage() {
 
   // Dynamic header action button per role
   const getHeaderActions = () => {
-    if (userRole === ROLES.COUNSELOR) {
+    if (userRole === ROLES.ADMIN) {
       return [
         {
           id: "register-student-action",
@@ -140,14 +143,14 @@ export default function DashboardPage() {
         },
       ];
     }
-    if (userRole === ROLES.ADMIN) {
+    if (userRole === ROLES.COUNSELOR) {
       return [
         {
-          id: "counselor-verification-action",
-          label: "Verify Counselor",
-          href: "/counselors",
+          id: "schedule-session-action",
+          label: "Schedule Session",
+          href: "/sessions",
           variant: "default",
-          iconName: "UserCheck",
+          iconName: "Plus",
         },
       ];
     }

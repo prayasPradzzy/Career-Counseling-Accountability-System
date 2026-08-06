@@ -29,9 +29,19 @@ export const signupSchema = z
       .regex(/[a-z]/, "Password must contain at least one lowercase letter")
       .regex(/[0-9]/, "Password must contain at least one number"),
     confirmPassword: z.string().min(1, "Please confirm your password"),
-    role: z.enum(["student", "parent", "counselor", "admin"]).default("student"),
+    role: z.enum(["student", "parent", "counselor"]).default("student"),
+    code: z.string().optional(),
   })
   .refine((data) => data.password === data.confirmPassword, {
     message: "Passwords do not match",
     path: ["confirmPassword"],
+  })
+  .refine((data) => {
+    if ((data.role === "student" || data.role === "parent") && (!data.code || data.code.trim() === "")) {
+      return false;
+    }
+    return true;
+  }, {
+    message: "Invite code is required for student registration",
+    path: ["code"],
   });

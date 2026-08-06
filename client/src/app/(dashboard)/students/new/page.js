@@ -1,6 +1,8 @@
 "use client";
 
+import { useEffect } from "react";
 import { useRouter } from "next/navigation";
+import { useAuth } from "@/context/AuthContext";
 import { useCreateStudent } from "@/features/students";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { StudentProfileForm } from "@/features/students/components/StudentProfileForm";
@@ -9,7 +11,20 @@ import { toast } from "sonner";
 
 export default function NewStudentPage() {
   const router = useRouter();
+  const { user } = useAuth();
+  const isAdmin = user?.role === "admin";
   const createStudentMutation = useCreateStudent();
+
+  useEffect(() => {
+    if (user && user.role !== "admin") {
+      toast.error("Access denied. Only administrators can register student accounts.");
+      router.push(ROUTES.STUDENTS);
+    }
+  }, [user, router]);
+
+  if (!isAdmin) {
+    return null;
+  }
 
   const handleFormSubmit = (payload) => {
     createStudentMutation.mutate(payload, {

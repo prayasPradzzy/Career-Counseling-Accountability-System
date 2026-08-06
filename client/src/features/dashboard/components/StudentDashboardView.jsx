@@ -135,9 +135,9 @@ export function StudentDashboardView({ data }) {
           <ProgressCard
             title="Profile Completeness"
             subtitle="Academic history & career goals"
-            percentage={85}
+            percentage={data?.profileCompleteness ?? 0}
             iconName="Target"
-            note="Action Required"
+            note={(data?.profileCompleteness ?? 0) >= 80 ? "High Completion" : "Action Required"}
           />
 
           {/* Upcoming Sessions Widget */}

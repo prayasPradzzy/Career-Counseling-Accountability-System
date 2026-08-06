@@ -23,6 +23,20 @@ class AssessmentAssignmentService {
       throw new ApiError(404, "Student user account not found.");
     }
 
+    // HARD BOUNDARY: Counselor can ONLY assign assessments to their own students!
+    if (requestingUser.role === "counselor") {
+      const counselorIdStr = requestingUser._id.toString();
+      const userCounselorIdStr = studentUser.counselorId ? studentUser.counselorId.toString() : null;
+
+      const profile = await ClientProfile.findOne({ userId: studentId });
+      const assignedIdStr = profile && profile.assignedCounselorId ? profile.assignedCounselorId.toString() : null;
+      const invitedByIdStr = profile && profile.invitedBy ? profile.invitedBy.toString() : null;
+
+      if (userCounselorIdStr !== counselorIdStr && assignedIdStr !== counselorIdStr && invitedByIdStr !== counselorIdStr) {
+        throw new ApiError(403, "Access denied: You can only assign work to your own assigned students.");
+      }
+    }
+
     // Verify Assessment Definition exists and is active
     const definition = await AssessmentDefinition.findById(assessmentDefinitionId);
     if (!definition || definition.status !== "active") {
@@ -67,6 +81,21 @@ class AssessmentAssignmentService {
     // RBAC Check: Student can only view their own assignments
     if (requestingUser.role === "student" && requestingUser._id.toString() !== studentId.toString()) {
       throw new ApiError(403, "Access denied. You can only view your own assessment assignments.");
+    }
+
+    // RBAC Check: Counselor can ONLY view assignments for their own students
+    if (requestingUser.role === "counselor") {
+      const counselorIdStr = requestingUser._id.toString();
+      const studentUser = await User.findById(studentId);
+      const userCounselorIdStr = studentUser && studentUser.counselorId ? studentUser.counselorId.toString() : null;
+
+      const profile = await ClientProfile.findOne({ $or: [{ _id: studentId }, { userId: studentId }] });
+      const assignedIdStr = profile && profile.assignedCounselorId ? profile.assignedCounselorId.toString() : null;
+      const invitedByIdStr = profile && profile.invitedBy ? profile.invitedBy.toString() : null;
+
+      if (userCounselorIdStr !== counselorIdStr && assignedIdStr !== counselorIdStr && invitedByIdStr !== counselorIdStr) {
+        throw new ApiError(403, "Access denied: You can only view assessment assignments for your own assigned students.");
+      }
     }
 
     const assignments = await AssessmentAssignment.find({ studentId })
@@ -393,6 +422,19 @@ class AssessmentAssignmentService {
 
     if (!assignment) {
       throw new ApiError(404, "Assessment assignment not found.");
+    }
+
+    // RBAC Check: Counselor can ONLY review assignments belonging to their own students
+    if (requestingUser.role === "counselor") {
+      const counselorIdStr = requestingUser._id.toString();
+      const assignmentCounselorIdStr = assignment.counselorId ? assignment.counselorId._id?.toString() || assignment.counselorId.toString() : null;
+
+      const studentUser = await User.findById(assignment.studentId._id || assignment.studentId);
+      const userCounselorIdStr = studentUser && studentUser.counselorId ? studentUser.counselorId.toString() : null;
+
+      if (assignmentCounselorIdStr !== counselorIdStr && userCounselorIdStr !== counselorIdStr) {
+        throw new ApiError(403, "Access denied: You can only review assessment details for your own assigned students.");
+      }
     }
 
     const AssessmentSession = require("./assessmentSession.model");

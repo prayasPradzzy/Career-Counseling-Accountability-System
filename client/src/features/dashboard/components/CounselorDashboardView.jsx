@@ -11,6 +11,8 @@ import { Badge } from "@/components/ui/badge";
 import { ROUTES } from "@/constants/routes";
 import { Users, UserPlus, BookOpen, Calendar, FileText, ListTodo, ChevronRight, Clock, ArrowRight } from "lucide-react";
 
+import { CounselorInviteCard } from "./CounselorInviteCard";
+
 export function CounselorDashboardView({ data }) {
   const stats = data?.stats || [];
   const interviews = data?.interviewsToday || [];
@@ -35,6 +37,9 @@ export function CounselorDashboardView({ data }) {
           />
         ))}
       </WidgetGrid>
+
+      {/* 2. Counselor Standing Invite Code Card */}
+      <CounselorInviteCard />
 
       {/* 2. Main Counselor Workspace Section Grid */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">

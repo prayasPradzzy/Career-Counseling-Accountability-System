@@ -12,6 +12,7 @@ const { AssessmentAssignment } = require("../modules/assessments/assessmentAssig
 const AssessmentSession = require("../modules/assessments/assessmentSession.model");
 const AssessmentResponse = require("../modules/assessments/assessmentResponse.model");
 const AssessmentScore = require("../modules/assessments/assessmentScore.model");
+const { generateToken } = require("../shared/utils/jwt");
 
 // Helper function to make HTTP requests against express app
 function makeRequest(server, options, body = null, token = null) {
@@ -127,10 +128,12 @@ async function runMvpE2EWorkflowAudit() {
     const counselorToken = counselorLoginRes.token;
     console.log(`✅ Step 2 Verified: Counselor Login successful (HTTP ${counselorLoginRes.status}, Token received)\n`);
 
+    const adminToken = generateToken(admin._id, "admin");
+
     // ------------------------------------------------------------------------
-    // STEP 3: Counselor invites a student
+    // STEP 3: Admin invites a student
     // ------------------------------------------------------------------------
-    console.log("--- Step 3: Counselor Invites Student ---");
+    console.log("--- Step 3: Admin Invites Student ---");
     const inviteRes = await makeRequest(
       server,
       { path: "/api/v1/clients/invite", method: "POST" },
@@ -139,8 +142,9 @@ async function runMvpE2EWorkflowAudit() {
         firstName: "Alex",
         lastName: "Taylor",
         phone: "+15550192834",
+        assignedCounselorId: counselorUser._id,
       },
-      counselorToken
+      adminToken
     );
 
     if (inviteRes.status !== 201 || !inviteRes.body.data?.invitationToken) {

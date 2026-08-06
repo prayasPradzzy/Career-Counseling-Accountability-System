@@ -31,10 +31,11 @@ export const NAV_ITEMS = [
     iconName: "TrendingUp",
     allowedRoles: [ROLES.PARENT],
   },
-  // 4. Counselors Directory (Student, Admin)
+  // 4. Counselor View (Student: single assigned counselor, Admin: counselor directory)
   {
     id: "counselors",
-    label: "Counselors",
+    label: "My Counselor",
+    labelByRole: { [ROLES.ADMIN]: "Counselors" },
     href: ROUTES.COUNSELORS,
     iconName: "UserCheck",
     allowedRoles: [ROLES.STUDENT, ROLES.ADMIN],

@@ -8,7 +8,7 @@ import { ROUTES } from "@/constants/routes";
  * StudentCard Component
  * Displays grid card summary of a student profile.
  */
-export function StudentCard({ student, onDelete, className }) {
+export function StudentCard({ student, onDelete, isAdmin = false, className }) {
   const user = student?.userId || {};
   const fullName = `${user.firstName || ""} ${user.lastName || ""}`.trim() || "Unnamed Student";
   const counselor = student?.assignedCounselorId;
@@ -39,7 +39,7 @@ export function StudentCard({ student, onDelete, className }) {
             </Link>
           </Button>
 
-          {onDelete && (
+          {onDelete && isAdmin && (
             <Button
               variant="ghost"
               size="icon"

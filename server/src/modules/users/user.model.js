@@ -32,8 +32,13 @@ const userSchema = new mongoose.Schema(
     },
     role: {
       type: String,
-      enum: ["student", "counselor", "admin"],
+      enum: ["student", "counselor", "admin", "parent"],
       default: "student",
+    },
+    counselorId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+      index: true,
     },
     // Optional activation status for invited accounts
     isActivated: {

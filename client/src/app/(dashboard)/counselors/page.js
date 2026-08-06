@@ -1,166 +1,246 @@
 "use client";
 
-import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { clientService } from "@/services/client.service";
+import api from "@/lib/api";
+import { API_ENDPOINTS } from "@/constants/api";
+import { useAuth } from "@/context/AuthContext";
 import { PageHeader } from "@/components/layout/PageHeader";
-import { WidgetGrid } from "@/components/layout/WidgetGrid";
-import { FilterBar } from "@/components/common/FilterBar";
 import { ProfileCard } from "@/components/common/ProfileCard";
+import { InfoCard } from "@/components/common/InfoCard";
+import { SectionCard } from "@/components/common/SectionCard";
 import { EmptyIllustration } from "@/components/common/EmptyIllustration";
 import { LoadingSkeleton } from "@/components/layout/LoadingSkeleton";
-import { Button } from "@/components/ui/button";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Filter, Calendar } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import { WidgetGrid } from "@/components/layout/WidgetGrid";
+import {
+  Mail,
+  Phone,
+  CheckCircle2,
+  CalendarDays,
+  Award,
+  Globe,
+  Briefcase,
+} from "lucide-react";
 
-const SPECIALIZATION_OPTIONS = [
-  { value: "all", label: "All Specializations" },
-  { value: "stem", label: "STEM & Technology" },
-  { value: "psychology", label: "Psychology & Behavioral Science" },
-  { value: "business", label: "Business & Management" },
-  { value: "general", label: "General Career Development" },
-];
-
+/**
+ * CounselorsPage
+ *
+ * Student view: single assigned counselor profile card (read-only).
+ * Admin view: placeholder for future counselor directory (currently shows notice).
+ */
 export default function CounselorsPage() {
-  const [searchQuery, setSearchQuery] = useState("");
-  const [specializationFilter, setSpecializationFilter] = useState("all");
+  const { user } = useAuth();
+  const isStudent = user?.role === "student";
 
-  const { data: counselorsData, isLoading, isError, error, refetch } = useQuery({
-    queryKey: ["counselors-list"],
+  if (isStudent) {
+    return <StudentCounselorView />;
+  }
+
+  // Admin view — can be expanded into a counselor directory later
+  return <AdminCounselorListView />;
+}
+
+// ─── Student View: Single Assigned Counselor ─────────────────────
+
+function StudentCounselorView() {
+  const {
+    data: counselorData,
+    isLoading,
+    isError,
+    error,
+    refetch,
+  } = useQuery({
+    queryKey: ["my-counselor"],
     queryFn: async () => {
-      const res = await clientService.getClients({ limit: 50 });
-      // Filter clients or profiles associated with counselor assignment
-      const allItems = res?.data?.clients || res?.data || res?.clients || [];
-      return allItems;
+      const res = await api.get(API_ENDPOINTS.COUNSELOR.MY_COUNSELOR);
+      return res.data?.data || null;
     },
   });
-
-  const rawCounselors = counselorsData || [];
-
-  const filteredCounselors = rawCounselors.filter((item) => {
-    const userObj = item.userId || item;
-    const name = `${userObj.firstName || ""} ${userObj.lastName || ""}`.trim() || item.name || "Counselor";
-    const spec = item.specialization || item.degree || "Career Guidance";
-    const bio = item.bio || item.notes || "";
-
-    const matchesSearch =
-      name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      spec.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      bio.toLowerCase().includes(searchQuery.toLowerCase());
-
-    const matchesSpecialization =
-      specializationFilter === "all" ||
-      spec.toLowerCase().includes(specializationFilter.toLowerCase());
-
-    return matchesSearch && matchesSpecialization;
-  });
-
-  const hasActiveFilters = searchQuery !== "" || specializationFilter !== "all";
 
   return (
     <div className="space-y-6">
       <PageHeader
-        title="Expert Counselors"
-        subtitle="Connect with certified career advisors for personalized 1-on-1 guidance."
+        title="My Counselor"
+        subtitle="Your assigned career guidance counselor"
       />
 
-      {/* FilterBar Component */}
-      <FilterBar
-        searchValue={searchQuery}
-        onSearchChange={(e) => setSearchQuery(e.target.value)}
-        onSearchClear={() => setSearchQuery("")}
-        searchPlaceholder="Search counselors by name or domain..."
-        hasActiveFilters={hasActiveFilters}
-        onResetFilters={() => {
-          setSearchQuery("");
-          setSpecializationFilter("all");
-        }}
-        filters={[
-          {
-            id: "specialization-select",
-            component: (
-              <Select value={specializationFilter} onValueChange={setSpecializationFilter}>
-                <SelectTrigger>
-                  <Filter className="mr-2 size-4 text-muted-foreground" />
-                  <SelectValue placeholder="All Specializations" />
-                </SelectTrigger>
-                <SelectContent>
-                  {SPECIALIZATION_OPTIONS.map((opt) => (
-                    <SelectItem key={opt.value} value={opt.value}>
-                      {opt.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            ),
-          },
-        ]}
-      />
+      {/* Loading */}
+      {isLoading && <LoadingSkeleton cards={1} />}
 
-      {/* Loading State */}
-      {isLoading && <LoadingSkeleton cards={4} />}
-
-      {/* Error State */}
+      {/* Network/Server Error */}
       {!isLoading && isError && (
         <EmptyIllustration
           iconName="AlertCircle"
-          title="Failed to Load Counselors"
-          description={error?.message || "An unexpected error occurred while fetching counselor profiles."}
-          actionLabel="Try Again"
+          title="Unable to Load Counselor"
+          description={
+            error?.response?.data?.message ||
+            "Something went wrong while fetching your counselor's details. Please try again."
+          }
+          actionLabel="Retry"
           onAction={() => refetch()}
         />
       )}
 
-      {/* Success / Empty State */}
-      {!isLoading && !isError && (
-        filteredCounselors.length > 0 ? (
-          <WidgetGrid cols={{ default: 1, md: 2 }} gap="gap-6">
-            {filteredCounselors.map((counselor) => {
-              const userObj = counselor.userId || counselor;
-              const name = `${userObj.firstName || ""} ${userObj.lastName || ""}`.trim() || counselor.name || "Counselor";
-              const initials = name
-                .split(" ")
-                .map((n) => n[0])
-                .join("")
-                .substring(0, 2)
-                .toUpperCase();
-              const id = counselor._id || counselor.id || userObj._id;
-
-              return (
-                <ProfileCard
-                  key={id}
-                  name={name}
-                  initials={initials}
-                  subtitle={counselor.specialization || "Career Counselor"}
-                  status={counselor.status === "ACTIVE" ? "success" : "neutral"}
-                  statusLabel={counselor.status || "Verified"}
-                  metaItems={[
-                    { label: "Role", value: "Counselor Advisor" },
-                    { label: "Status", value: counselor.status || "Active" },
-                  ]}
-                  action={
-                    <Button className="w-full font-semibold shadow" size="sm">
-                      <Calendar className="mr-2 size-4" />
-                      Book Session
-                    </Button>
-                  }
-                />
-              );
-            })}
-          </WidgetGrid>
-        ) : (
-          <EmptyIllustration
-            iconName="Users"
-            title="No Counselors Found"
-            description="No career advisors matched your criteria."
-            actionLabel="Clear Filters"
-            onAction={() => {
-              setSearchQuery("");
-              setSpecializationFilter("all");
-            }}
-          />
-        )
+      {/* No counselor linked (defensive) */}
+      {!isLoading && !isError && !counselorData && (
+        <EmptyIllustration
+          iconName="UserX"
+          title="No Counselor Linked"
+          description="No counselor is currently assigned to your account. If you believe this is an error, please contact support."
+        />
       )}
+
+      {/* Success — Single counselor card */}
+      {!isLoading && !isError && counselorData && (
+        <CounselorProfileCard counselor={counselorData} />
+      )}
+    </div>
+  );
+}
+
+// ─── Counselor Profile Card ──────────────────────────────────────
+
+function CounselorProfileCard({ counselor }) {
+  const fullName =
+    `${counselor.firstName || ""} ${counselor.lastName || ""}`.trim() ||
+    "Your Counselor";
+
+  const initials = fullName
+    .split(" ")
+    .map((n) => n[0])
+    .join("")
+    .substring(0, 2)
+    .toUpperCase();
+
+  const specializations = counselor.practice?.specializations || [];
+  const languages = counselor.practice?.languagesSpoken || [];
+  const bio = counselor.practice?.bio || "";
+  const yearsExp = counselor.practice?.yearsExperience;
+  const qualification = counselor.credentials?.highestQualification || "";
+  const institution = counselor.credentials?.institution || "";
+  const certifications = counselor.credentials?.certifications || [];
+
+  return (
+    <div className="space-y-6">
+      {/* Primary Card */}
+      <SectionCard
+        title="Counselor Profile"
+        subtitle="Your assigned career guidance counselor"
+        iconName="UserCheck"
+      >
+        <div className="p-5 rounded-xl border border-border/80 bg-card space-y-5">
+          {/* Header: Avatar + Name + Badge */}
+          <div className="flex items-start gap-4">
+            <div className="flex size-16 items-center justify-center rounded-full bg-primary/10 text-primary text-xl font-bold shrink-0">
+              {initials}
+            </div>
+            <div className="flex-1 min-w-0 space-y-1">
+              <div className="flex items-center gap-2 flex-wrap">
+                <h3 className="font-bold text-lg text-foreground">{fullName}</h3>
+                <Badge
+                  variant="outline"
+                  className="text-[11px] gap-1 bg-emerald-500/10 text-emerald-600 border-emerald-600/30"
+                >
+                  <CheckCircle2 className="size-3 text-emerald-600" />
+                  Verified Counselor
+                </Badge>
+              </div>
+
+              {qualification && (
+                <p className="text-sm text-muted-foreground">
+                  {qualification}
+                  {institution ? ` — ${institution}` : ""}
+                </p>
+              )}
+
+              {bio && (
+                <p className="text-sm text-muted-foreground leading-relaxed pt-1">{bio}</p>
+              )}
+            </div>
+          </div>
+
+          {/* Contact Info */}
+          <div className="flex flex-wrap gap-4 text-sm text-muted-foreground pt-3 border-t border-border/60">
+            {counselor.email && (
+              <span className="flex items-center gap-1.5">
+                <Mail className="size-3.5 text-primary" />
+                {counselor.email}
+              </span>
+            )}
+            {counselor.phone && (
+              <span className="flex items-center gap-1.5">
+                <Phone className="size-3.5 text-primary" />
+                {counselor.phone}
+              </span>
+            )}
+          </div>
+        </div>
+      </SectionCard>
+
+      {/* Details Grid */}
+      <WidgetGrid cols={{ default: 1, md: 2 }} gap="gap-6">
+        {/* Specializations + Experience */}
+        <InfoCard
+          title="Expertise"
+          subtitle="Areas of specialization and experience"
+          iconName="Briefcase"
+          items={[
+            {
+              label: "Years of Experience",
+              value: yearsExp ? `${yearsExp} years` : "Not specified",
+            },
+            {
+              label: "Specializations",
+              value:
+                specializations.length > 0
+                  ? specializations.join(", ")
+                  : "Not specified",
+            },
+          ]}
+          cols={1}
+        />
+
+        {/* Certifications + Languages */}
+        <InfoCard
+          title="Qualifications"
+          subtitle="Certifications and languages spoken"
+          iconName="Award"
+          items={[
+            {
+              label: "Certifications",
+              value:
+                certifications.length > 0
+                  ? certifications.join(", ")
+                  : "None listed",
+            },
+            {
+              label: "Languages Spoken",
+              value:
+                languages.length > 0 ? languages.join(", ") : "Not specified",
+            },
+          ]}
+          cols={1}
+        />
+      </WidgetGrid>
+    </div>
+  );
+}
+
+// ─── Admin View: Counselor Directory (placeholder) ───────────────
+
+function AdminCounselorListView() {
+  return (
+    <div className="space-y-6">
+      <PageHeader
+        title="Counselors"
+        subtitle="Manage and view all registered career counselors"
+      />
+
+      <EmptyIllustration
+        iconName="Users"
+        title="Counselor Directory"
+        description="The admin counselor management directory is under development. Counselor data can be viewed via individual student profiles."
+      />
     </div>
   );
 }

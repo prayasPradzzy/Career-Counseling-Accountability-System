@@ -19,18 +19,18 @@ router.post("/activate", validate(activateStudentSchema), clientController.activ
 // Protected endpoints require authentication
 router.use(requireAuth);
 
-// Flow B & Flow C: Counselor or Admin creates Student Record & generates invitation token
+// Flow B & Flow C: Admin creates Student Record & generates invitation token
 router.post(
   "/invite",
-  restrictTo("counselor", "admin"),
+  restrictTo("admin"),
   validate(inviteStudentSchema),
   clientController.inviteStudent
 );
 
-// Routes accessible by Counselors & Admins
+// Routes accessible by Counselors & Admins (Creation admin-only)
 router
   .route("/")
-  .post(restrictTo("counselor", "admin"), validate(createClientSchema), clientController.createClientProfile)
+  .post(restrictTo("admin"), validate(createClientSchema), clientController.createClientProfile)
   .get(restrictTo("counselor", "admin"), clientController.getClients);
 
 // Assign Counselor endpoint
@@ -46,7 +46,7 @@ router
   .route("/:id")
   .get(clientController.getClientProfile)
   .put(validate(updateClientSchema), clientController.updateClientProfile)
-  .delete(restrictTo("counselor", "admin"), clientController.softDeleteClientProfile);
+  .delete(restrictTo("admin"), clientController.softDeleteClientProfile);
 
 // Update consent status
 router.patch("/:id/consent", validate(consentSchema), clientController.updateConsentStatus);

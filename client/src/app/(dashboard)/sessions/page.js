@@ -113,8 +113,8 @@ export default function SessionsPage() {
             <EmptyIllustration
               iconName="Calendar"
               title="No Upcoming Sessions"
-              description="You don't have any counseling appointments scheduled. Connect with an expert counselor to book your session."
-              actionLabel="Browse Counselors"
+              description="You don't have any counseling appointments scheduled. Reach out to your assigned counselor to book a session."
+              actionLabel="View My Counselor"
               actionHref="/counselors"
             />
           )}

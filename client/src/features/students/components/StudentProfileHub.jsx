@@ -5,15 +5,8 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { OverviewSection } from "./sections/OverviewSection";
 import { AssessmentHistorySection } from "./sections/AssessmentHistorySection";
 import { AssessmentScoresSection } from "./sections/AssessmentScoresSection";
-import { InterviewSessionsSection } from "./sections/InterviewSessionsSection";
-import { InterviewNotesSection } from "./sections/InterviewNotesSection";
-import { AIInsightsSection } from "./sections/AIInsightsSection";
-import { RecommendationsSection } from "./sections/RecommendationsSection";
-import { ReportsSection } from "./sections/ReportsSection";
-import { ProgressTimelineSection } from "./sections/ProgressTimelineSection";
 import { InfoCard } from "@/components/common/InfoCard";
 import { GuardianCard } from "./GuardianCard";
-import { ConsentCard } from "./ConsentCard";
 import { SectionCard } from "@/components/common/SectionCard";
 import { Badge } from "@/components/ui/badge";
 import { AssignAssessmentDialog } from "./AssignAssessmentDialog";
@@ -27,12 +20,6 @@ import {
   Users,
   UserCheck,
   Award,
-  Calendar,
-  FileText,
-  BrainCircuit,
-  Compass,
-  TrendingUp,
-  Settings as SettingsIcon,
 } from "lucide-react";
 
 import { TransferOwnershipDialog } from "./TransferOwnershipDialog";
@@ -41,7 +28,7 @@ import { useAssignCounselor } from "../hooks/useStudents";
 /**
  * StudentProfileHub Component
  * Central Hub Architecture for Student Profile.
- * Integrates all 14 modular sections into a unified tabbed extension layout.
+ * Integrates 6 career-guidance sections into a unified tabbed layout.
  */
 export function StudentProfileHub({
   profile,
@@ -135,26 +122,6 @@ export function StudentProfileHub({
               <Award className="size-3.5" />
               Assessments & Scores
             </TabsTrigger>
-            <TabsTrigger value="interviews" className="text-xs gap-1.5 px-3">
-              <Calendar className="size-3.5" />
-              Interviews & Notes
-            </TabsTrigger>
-            <TabsTrigger value="ai-insights" className="text-xs gap-1.5 px-3">
-              <BrainCircuit className="size-3.5 text-primary" />
-              AI Insights
-            </TabsTrigger>
-            <TabsTrigger value="recommendations" className="text-xs gap-1.5 px-3">
-              <Compass className="size-3.5 text-emerald-500" />
-              Recommendations
-            </TabsTrigger>
-            <TabsTrigger value="reports" className="text-xs gap-1.5 px-3">
-              <FileText className="size-3.5" />
-              Reports
-            </TabsTrigger>
-            <TabsTrigger value="timeline" className="text-xs gap-1.5 px-3">
-              <TrendingUp className="size-3.5" />
-              Timeline
-            </TabsTrigger>
           </TabsList>
         </div>
 
@@ -201,10 +168,12 @@ export function StudentProfileHub({
                 {profile.education.map((edu, idx) => (
                   <div key={edu._id || idx} className="p-4 rounded-lg border border-border bg-card space-y-1">
                     <p className="font-semibold text-sm text-foreground">{edu.institution}</p>
-                    <p className="text-xs text-primary font-medium">{edu.degree} in {edu.fieldOfStudy}</p>
-                    {(edu.startYear || edu.endYear) && (
+                    <p className="text-xs text-primary font-medium">
+                      {(edu.degreeProgram || edu.degree || "Degree") + (edu.fieldOfStudy ? ` in ${edu.fieldOfStudy}` : "")}
+                    </p>
+                    {(edu.startYear || edu.endYear || edu.graduationYear) && (
                       <p className="text-xs text-muted-foreground">
-                        {edu.startYear || "?"} – {edu.endYear || "Present"}
+                        {edu.startYear || "?"} – {edu.endYear || edu.graduationYear || "Present"}
                       </p>
                     )}
                   </div>
@@ -274,31 +243,7 @@ export function StudentProfileHub({
           <AssessmentScoresSection />
         </TabsContent>
 
-        {/* 7. Interviews & Notes Tab */}
-        <TabsContent value="interviews" className="mt-4 space-y-6">
-          <InterviewSessionsSection />
-          <InterviewNotesSection />
-        </TabsContent>
 
-        {/* 8. AI Insights Extension Tab */}
-        <TabsContent value="ai-insights" className="mt-4">
-          <AIInsightsSection />
-        </TabsContent>
-
-        {/* 9. Recommendations Extension Tab */}
-        <TabsContent value="recommendations" className="mt-4">
-          <RecommendationsSection />
-        </TabsContent>
-
-        {/* 10. Reports Extension Tab */}
-        <TabsContent value="reports" className="mt-4">
-          <ReportsSection />
-        </TabsContent>
-
-        {/* 11. Timeline Extension Tab */}
-        <TabsContent value="timeline" className="mt-4">
-          <ProgressTimelineSection profile={profile} />
-        </TabsContent>
       </Tabs>
 
       {/* Assign Assessment Dialog (Counselor/Admin only) */}

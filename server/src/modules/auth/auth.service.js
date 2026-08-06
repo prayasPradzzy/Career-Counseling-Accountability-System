@@ -1,49 +1,56 @@
 const User = require("../users/user.model");
+const signupStrategies = require("./signupStrategies");
 const ApiError = require("../../shared/utils/ApiError");
 const { generateToken } = require("../../shared/utils/jwt");
 
-/**
- * Auth Service
- * Exists to handle purely business logic. It does not know about HTTP requests or responses.
- * This makes it easily testable.
- */
 class AuthService {
+  /**
+   * Rebuilt Signup System — Role-Correct & Fully Enforced Dispatcher
+   */
   async signup(userData) {
-    // 1. Check if user already exists
-    const existingUser = await User.findOne({ email: userData.email });
-    if (existingUser) {
-      throw new ApiError(409, "User with this email already exists");
+    let { role, name, firstName, lastName, ...rest } = userData;
+
+    // Hard Security Rule: Rejects role = 'admin' unconditionally!
+    if (role === "admin") {
+      throw new ApiError(403, "role_not_allowed");
     }
 
-    // 2. Create user (password hashing is handled by the pre-save hook in user.model.js)
-    const user = await User.create(userData);
+    if (!role || !["student", "counselor", "parent"].includes(role)) {
+      throw new ApiError(400, "invalid_role");
+    }
 
-    // 3. Remove password from the returned object for security
-    const userWithoutPassword = user.toObject();
-    delete userWithoutPassword.password;
+    // Support single name field or firstName/lastName
+    if (!firstName && name) {
+      const parts = name.trim().split(" ");
+      firstName = parts[0];
+      lastName = parts.slice(1).join(" ") || parts[0];
+    }
 
-    return userWithoutPassword;
+    if (!firstName || !lastName) {
+      throw new ApiError(400, "First name and last name are required");
+    }
+
+    const handler = signupStrategies[role];
+    return await handler({
+      firstName,
+      lastName,
+      ...rest,
+    });
   }
 
   async login(email, password) {
-    // 1. Find the user by email
-    // IMPORTANT: Because we set 'select: false' on the password field in our Schema,
-    // we must explicitly ask Mongoose to include it for this specific query using '+password'
-    const user = await User.findOne({ email }).select("+password");
+    const user = await User.findOne({ email: email.toLowerCase().trim() }).select("+password");
     if (!user) {
       throw new ApiError(401, "Invalid email or password");
     }
 
-    // 2. Compare the provided password with the hashed password in the DB
     const isPasswordMatch = await user.comparePassword(password);
     if (!isPasswordMatch) {
       throw new ApiError(401, "Invalid email or password");
     }
 
-    // 3. Generate the JWT (Access Token)
     const token = generateToken(user._id, user.role);
 
-    // 4. Remove password before returning
     const userWithoutPassword = user.toObject();
     delete userWithoutPassword.password;
 

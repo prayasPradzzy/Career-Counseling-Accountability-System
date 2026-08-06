@@ -125,12 +125,12 @@ export function StudentTable({ students = [], onDelete, onTransferOwnership, isA
                       </Link>
                     </Button>
 
-                    {onDelete && (
+                    {onDelete && isAdmin && (
                       <Button
                         variant="ghost"
                         size="icon"
                         onClick={() => onDelete(student)}
-                        title="Archive Student"
+                        title="Archive Student (Admin Only)"
                         aria-label="Archive Student"
                       >
                         <Trash2 className="size-4 text-muted-foreground hover:text-destructive" />

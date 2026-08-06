@@ -54,6 +54,7 @@ export function MobileNavigation({ open, onOpenChange }) {
             const Icon = getIcon(item.iconName);
             const isActive =
               pathname === item.href || pathname.startsWith(item.href + "/");
+            const displayLabel = item.labelByRole?.[userRole] || item.label;
 
             return (
               <Link
@@ -68,7 +69,7 @@ export function MobileNavigation({ open, onOpenChange }) {
                 )}
               >
                 <Icon className="size-4 shrink-0" />
-                {item.label}
+                {displayLabel}
               </Link>
             );
           })}
