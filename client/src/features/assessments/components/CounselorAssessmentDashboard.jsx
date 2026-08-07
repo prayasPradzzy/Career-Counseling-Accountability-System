@@ -4,9 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import {
   useCounselorAssignments,
-  useApproveAssignment,
   useRejectAssignment,
-  useReviewAssignment,
 } from "@/features/assessments/hooks/useAssessmentAssignments";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { SectionCard } from "@/components/common/SectionCard";
@@ -29,38 +27,44 @@ import {
   Clock,
   Eye,
   CheckCircle2,
-  XCircle,
   RotateCcw,
-  Users,
   Loader2,
-  FileSearch,
   Inbox,
   User,
   CalendarDays,
   Timer,
   TrendingUp,
+  PlayCircle,
 } from "lucide-react";
 import { toast } from "sonner";
 
-// Status tab filter definitions
+// ── Status tab filter definitions ────────────────────────────────────────────
 const STATUS_TABS = [
   { value: "all", label: "All", icon: ClipboardCheck },
-  { value: "pending", label: "Pending", icon: Clock },
-  { value: "submitted", label: "Submitted", icon: FileSearch },
-  { value: "under_review", label: "Reviewed", icon: Eye },
-  { value: "approved", label: "Approved", icon: CheckCircle2 },
+  { value: "not_started", label: "Not Started", icon: Clock },
+  { value: "in_progress", label: "In Progress", icon: PlayCircle },
+  { value: "completed", label: "Completed", icon: CheckCircle2 },
 ];
 
-// Status → badge variant mapping
+// ── Status → badge variant mapping ───────────────────────────────────────────
 const STATUS_BADGE_MAP = {
-  ASSIGNED: { variant: "secondary", label: "Assigned" },
+  ASSIGNED: { variant: "secondary", label: "Not Started" },
   SCHEDULED: { variant: "secondary", label: "Scheduled" },
   IN_PROGRESS: { variant: "amber", label: "In Progress" },
-  COMPLETED: { variant: "info", label: "Submitted" },
-  UNDER_REVIEW: { variant: "info", label: "Under Review" },
-  APPROVED: { variant: "emerald", label: "Approved" },
+  COMPLETED: { variant: "emerald", label: "Completed" },
+  // Legacy statuses that may still exist in DB — map gracefully
+  UNDER_REVIEW: { variant: "emerald", label: "Completed" },
+  APPROVED: { variant: "emerald", label: "Completed" },
   REJECTED: { variant: "destructive", label: "Retake Requested" },
   EXPIRED: { variant: "secondary", label: "Expired" },
+};
+
+// ── Tab value → API statusGroup mapping ──────────────────────────────────────
+const TAB_TO_FILTER = {
+  all: {},
+  not_started: { statusGroup: "pending" },
+  in_progress: { statusGroup: "in_progress" },
+  completed: { statusGroup: "completed" },
 };
 
 function formatDate(dateStr) {
@@ -85,116 +89,93 @@ function formatDuration(seconds) {
 export default function CounselorAssessmentDashboard() {
   const router = useRouter();
   const [activeTab, setActiveTab] = useState("all");
-  const [actionDialog, setActionDialog] = useState({ open: false, type: null, assignment: null });
-  const [counselorNotes, setCounselorNotes] = useState("");
+  const [retakeDialog, setRetakeDialog] = useState({ open: false, assignment: null });
+  const [retakeNotes, setRetakeNotes] = useState("");
 
-  // Build filter based on active tab
-  const filters = activeTab !== "all" ? { statusGroup: activeTab } : {};
+  const filters = TAB_TO_FILTER[activeTab] || {};
   const { data: assignmentsData, isLoading, refetch } = useCounselorAssignments(filters);
-
-  const approveMutation = useApproveAssignment();
   const rejectMutation = useRejectAssignment();
-  const reviewMutation = useReviewAssignment();
 
   const assignments = assignmentsData?.data?.assignments || [];
 
-  // Stat counters from all (unfiltered) view — computed from current tab's data
-  const pendingCount = assignments.filter(
+  // ── Stat counters (computed from current tab's unfiltered all-data call) ──
+  // We always show stats on the "all" tab; on filtered tabs we hide the stat row
+  // to avoid confusion. Counts are derived from the current tab's data.
+  const notStartedCount = assignments.filter(
     (a) => a.status === "ASSIGNED" || a.status === "SCHEDULED"
   ).length;
-  const submittedCount = assignments.filter((a) => a.status === "COMPLETED").length;
-  const reviewedCount = assignments.filter((a) => a.status === "UNDER_REVIEW").length;
-  const approvedCount = assignments.filter((a) => a.status === "APPROVED").length;
+  const inProgressCount = assignments.filter((a) => a.status === "IN_PROGRESS").length;
+  const completedCount = assignments.filter(
+    (a) =>
+      a.status === "COMPLETED" ||
+      a.status === "UNDER_REVIEW" ||
+      a.status === "APPROVED"
+  ).length;
 
-  const handleOpenActionDialog = (type, assignment) => {
-    setActionDialog({ open: true, type, assignment });
-    setCounselorNotes("");
+  const handleOpenRetake = (assignment) => {
+    setRetakeDialog({ open: true, assignment });
+    setRetakeNotes("");
   };
 
-  const handleCloseDialog = () => {
-    setActionDialog({ open: false, type: null, assignment: null });
-    setCounselorNotes("");
+  const handleCloseRetake = () => {
+    setRetakeDialog({ open: false, assignment: null });
+    setRetakeNotes("");
   };
 
-  const handleAction = async () => {
-    const { type, assignment } = actionDialog;
+  const handleRetake = async () => {
+    if (!retakeNotes.trim()) {
+      toast.error("Please provide a reason explaining why a retake is required.");
+      return;
+    }
     try {
-      if (type === "approve") {
-        await approveMutation.mutateAsync({
-          assignmentId: assignment._id,
-          counselorNotes: counselorNotes || undefined,
-        });
-        toast.success("Assessment approved successfully.");
-      } else if (type === "reject") {
-        if (!counselorNotes.trim()) {
-          toast.error("Please provide notes explaining why a retake is requested.");
-          return;
-        }
-        await rejectMutation.mutateAsync({
-          assignmentId: assignment._id,
-          counselorNotes,
-        });
-        toast.success("Retake requested. Student will be notified.");
-      } else if (type === "review") {
-        await reviewMutation.mutateAsync({
-          assignmentId: assignment._id,
-          counselorNotes: counselorNotes || undefined,
-        });
-        toast.success("Assessment marked under review.");
-      }
-      handleCloseDialog();
+      await rejectMutation.mutateAsync({
+        assignmentId: retakeDialog.assignment._id,
+        counselorNotes: retakeNotes,
+      });
+      toast.success("Retake requested. The student will be notified.");
+      handleCloseRetake();
       refetch();
     } catch (err) {
-      toast.error(err?.response?.data?.message || "Action failed. Please try again.");
+      toast.error(err?.response?.data?.message || "Failed to request retake. Please try again.");
     }
   };
-
-  const isActionPending =
-    approveMutation.isPending || rejectMutation.isPending || reviewMutation.isPending;
 
   return (
     <div className="space-y-6">
       <PageHeader
         title="Assessment Review"
-        subtitle="Review, approve, and manage student assessment submissions across all assigned assessments."
+        subtitle="View results and manage student assessment submissions."
         breadcrumbs={false}
       />
 
-      {/* Summary Stats */}
+      {/* ── Summary Stats (shown only on "All" tab) ─────────────────────────── */}
       {!isLoading && activeTab === "all" && (
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <div className="grid grid-cols-3 gap-4">
           <StatCard
             icon={Clock}
-            label="Pending"
-            value={pendingCount}
+            label="Not Started"
+            value={notStartedCount}
             color="text-amber-500"
             bgColor="bg-amber-500/10"
           />
           <StatCard
-            icon={FileSearch}
-            label="Submitted"
-            value={submittedCount}
+            icon={PlayCircle}
+            label="In Progress"
+            value={inProgressCount}
             color="text-blue-500"
             bgColor="bg-blue-500/10"
           />
           <StatCard
-            icon={Eye}
-            label="Under Review"
-            value={reviewedCount}
-            color="text-violet-500"
-            bgColor="bg-violet-500/10"
-          />
-          <StatCard
             icon={CheckCircle2}
-            label="Approved"
-            value={approvedCount}
+            label="Completed"
+            value={completedCount}
             color="text-emerald-500"
             bgColor="bg-emerald-500/10"
           />
         </div>
       )}
 
-      {/* Status Filter Tabs */}
+      {/* ── Status Filter Tabs ───────────────────────────────────────────────── */}
       <Tabs value={activeTab} onValueChange={setActiveTab}>
         <TabsList className="w-full sm:w-auto overflow-x-auto">
           {STATUS_TABS.map((tab) => (
@@ -205,7 +186,7 @@ export default function CounselorAssessmentDashboard() {
           ))}
         </TabsList>
 
-        {/* Content for each tab renders the same list, since filtering is via API */}
+        {/* Content for each tab renders the same list — filtering is via API */}
         {STATUS_TABS.map((tab) => (
           <TabsContent key={tab.value} value={tab.value}>
             {isLoading ? (
@@ -229,10 +210,10 @@ export default function CounselorAssessmentDashboard() {
                   <AssignmentRow
                     key={`${tab.value}-${assignment._id || assignment.id || index}`}
                     assignment={assignment}
-                    onReview={() => handleOpenActionDialog("review", assignment)}
-                    onApprove={() => handleOpenActionDialog("approve", assignment)}
-                    onReject={() => handleOpenActionDialog("reject", assignment)}
-                    onViewDetail={() => router.push(`/assessments/review/${assignment._id || assignment.id}`)}
+                    onRetake={() => handleOpenRetake(assignment)}
+                    onViewDetail={() =>
+                      router.push(`/assessments/review/${String(assignment._id || assignment.id)}`)
+                    }
                   />
                 ))}
               </div>
@@ -241,63 +222,46 @@ export default function CounselorAssessmentDashboard() {
         ))}
       </Tabs>
 
-      {/* Action Confirmation Dialog */}
-      <Dialog open={actionDialog.open} onOpenChange={(open) => !open && handleCloseDialog()}>
+      {/* ── Retake Request Dialog ─────────────────────────────────────────────── */}
+      <Dialog open={retakeDialog.open} onOpenChange={(open) => !open && handleCloseRetake()}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
-            <DialogTitle>
-              {actionDialog.type === "approve" && "Approve Assessment"}
-              {actionDialog.type === "reject" && "Request Retake"}
-              {actionDialog.type === "review" && "Mark Under Review"}
-            </DialogTitle>
+            <DialogTitle>Request Retake</DialogTitle>
             <DialogDescription>
-              {actionDialog.type === "approve" &&
-                "Approval is an optional QA step. The student's next assessment unlocks automatically upon submission — approving confirms this submission is trustworthy and records your sign-off."}
-              {actionDialog.type === "reject" &&
-                "The student will be asked to retake this assessment. A clear explanation is required so they understand what to address."}
-              {actionDialog.type === "review" &&
-                "Mark this submission as under review while you evaluate the details. No student action is triggered."}
+              The student will be asked to redo this assessment from scratch. A clear explanation
+              is required so they understand what to address.
             </DialogDescription>
           </DialogHeader>
 
           <div className="space-y-3 py-2">
             <label className="text-xs font-medium text-muted-foreground">
-              Counselor Notes {actionDialog.type === "reject" && "(Required)"}
+              Reason for Retake <span className="text-destructive">(Required)</span>
             </label>
             <Textarea
-              placeholder={
-                actionDialog.type === "reject"
-                  ? "Explain why a retake is necessary..."
-                  : "Optional notes for this action..."
-              }
-              value={counselorNotes}
-              onChange={(e) => setCounselorNotes(e.target.value)}
-              rows={3}
+              placeholder="Explain why a retake is necessary — e.g. responses appear inconsistent, session was flagged for unusually fast completion, etc."
+              value={retakeNotes}
+              onChange={(e) => setRetakeNotes(e.target.value)}
+              rows={4}
               className="resize-none"
             />
           </div>
 
           <DialogFooter>
-            <DialogClose>
-              <Button variant="outline" size="sm">
+            <DialogClose asChild>
+              <Button variant="outline" size="sm" onClick={handleCloseRetake}>
                 Cancel
               </Button>
             </DialogClose>
             <Button
               size="sm"
-              disabled={isActionPending}
-              onClick={handleAction}
-              variant={actionDialog.type === "reject" ? "destructive" : "default"}
-              className={
-                actionDialog.type === "approve"
-                  ? "bg-emerald-600 hover:bg-emerald-700 text-white"
-                  : ""
-              }
+              variant="destructive"
+              disabled={rejectMutation.isPending}
+              onClick={handleRetake}
             >
-              {isActionPending && <Loader2 className="mr-1.5 size-3.5 animate-spin" />}
-              {actionDialog.type === "approve" && "Approve"}
-              {actionDialog.type === "reject" && "Request Retake"}
-              {actionDialog.type === "review" && "Mark Under Review"}
+              {rejectMutation.isPending && (
+                <Loader2 className="mr-1.5 size-3.5 animate-spin" />
+              )}
+              Request Retake
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -306,9 +270,7 @@ export default function CounselorAssessmentDashboard() {
   );
 }
 
-// ──────────────────────────────────────────────
-// Sub-Components
-// ──────────────────────────────────────────────
+// ── Sub-Components ─────────────────────────────────────────────────────────────
 
 function StatCard({ icon: Icon, label, value, color, bgColor }) {
   return (
@@ -324,21 +286,29 @@ function StatCard({ icon: Icon, label, value, color, bgColor }) {
   );
 }
 
-function AssignmentRow({ assignment, onReview, onApprove, onReject, onViewDetail }) {
+function AssignmentRow({ assignment, onRetake, onViewDetail }) {
   const def = assignment.assessmentDefinitionId || {};
   const student = assignment.studentId || {};
   const session = assignment.sessionSummary;
-  const statusInfo = STATUS_BADGE_MAP[assignment.status] || { variant: "secondary", label: assignment.status };
+  const statusInfo =
+    STATUS_BADGE_MAP[assignment.status] || { variant: "secondary", label: assignment.status };
 
-  const progressPercent = session?.progress?.percentage ?? 0;
-  const canReview = assignment.status === "COMPLETED";
-  const canApprove = assignment.status === "COMPLETED" || assignment.status === "UNDER_REVIEW";
-  const canReject = assignment.status === "COMPLETED" || assignment.status === "UNDER_REVIEW";
-  const hasDetail = assignment.status !== "ASSIGNED" && assignment.status !== "SCHEDULED";
+  const isCompleted =
+    assignment.status === "COMPLETED" ||
+    assignment.status === "UNDER_REVIEW" ||
+    assignment.status === "APPROVED";
+  const isInProgress = assignment.status === "IN_PROGRESS";
+  const hasSession = isCompleted || isInProgress;
+
+  // Progress: completed = always 100%, in-progress = session value, else 0
+  const progressPercent = isCompleted
+    ? 100
+    : isInProgress
+    ? session?.progress?.percentage ?? 0
+    : 0;
 
   return (
     <div className="group rounded-xl border border-border/60 bg-card hover:border-primary/30 hover:shadow-sm transition-all duration-200 overflow-hidden">
-      {/* Main Row */}
       <div className="flex flex-col lg:flex-row lg:items-center gap-4 p-4">
         {/* Student + Assessment Info */}
         <div className="flex items-start gap-3 flex-1 min-w-0">
@@ -348,7 +318,7 @@ function AssignmentRow({ assignment, onReview, onApprove, onReject, onViewDetail
           <div className="min-w-0 space-y-1">
             <div className="flex items-center gap-2 flex-wrap">
               <h4 className="font-semibold text-sm truncate">
-                {student.firstName} {student.lastName}
+                {student.firstName || ""} {student.lastName || student.name || ""}
               </h4>
               <Badge variant={statusInfo.variant} className="text-[10px] px-1.5 py-0 shrink-0">
                 {statusInfo.label}
@@ -360,7 +330,7 @@ function AssignmentRow({ assignment, onReview, onApprove, onReject, onViewDetail
           </div>
         </div>
 
-        {/* Progress Section */}
+        {/* Progress + Timing + Actions */}
         <div className="flex items-center gap-6 shrink-0">
           {/* Progress Bar */}
           <div className="hidden sm:flex flex-col items-end gap-1 min-w-[100px]">
@@ -391,9 +361,9 @@ function AssignmentRow({ assignment, onReview, onApprove, onReject, onViewDetail
             )}
           </div>
 
-          {/* Action Buttons */}
+          {/* Action Buttons — only View and Retake */}
           <div className="flex items-center gap-1.5">
-            {hasDetail && (
+            {hasSession && (
               <Button
                 variant="outline"
                 size="sm"
@@ -404,33 +374,12 @@ function AssignmentRow({ assignment, onReview, onApprove, onReject, onViewDetail
                 <span className="hidden sm:inline">View</span>
               </Button>
             )}
-            {canReview && (
-              <Button
-                variant="outline"
-                size="sm"
-                className="h-7 text-xs gap-1 border-violet-300 text-violet-600 hover:bg-violet-50 dark:border-violet-700 dark:text-violet-400 dark:hover:bg-violet-950"
-                onClick={onReview}
-              >
-                <Eye className="size-3" />
-                <span className="hidden sm:inline">Review</span>
-              </Button>
-            )}
-            {canApprove && (
-              <Button
-                size="sm"
-                className="h-7 text-xs gap-1 bg-emerald-600 hover:bg-emerald-700 text-white"
-                onClick={onApprove}
-              >
-                <CheckCircle2 className="size-3" />
-                <span className="hidden sm:inline">Approve</span>
-              </Button>
-            )}
-            {canReject && (
+            {isCompleted && (
               <Button
                 variant="destructive"
                 size="sm"
                 className="h-7 text-xs gap-1"
-                onClick={onReject}
+                onClick={onRetake}
               >
                 <RotateCcw className="size-3" />
                 <span className="hidden sm:inline">Retake</span>

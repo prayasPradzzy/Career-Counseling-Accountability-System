@@ -4,9 +4,11 @@ const AssessmentResponse = require("./assessmentResponse.model");
 const AssessmentDefinition = require("./assessmentDefinition.model");
 const AssessmentSection = require("./assessmentSection.model");
 const AssessmentQuestion = require("./assessmentQuestion.model");
+const AssessmentScore = require("./assessmentScore.model");
 const { AssessmentAssignment, ASSIGNMENT_STATUS } = require("./assessmentAssignment.model");
 const StudentProfile = require("../profiles/studentProfile.model");
 const scoringEngine = require("./scoring/scoringEngine");
+const studentInterpretationsConfig = require("../../config/studentInterpretations.json");
 const ApiError = require("../../shared/utils/ApiError");
 const { deriveStudentLifecycleStatus } = require("../../shared/constants/studentStatus.constants");
 
@@ -477,6 +479,54 @@ class AssessmentSessionService {
     }
 
     return await this.getSessionState(session._id, studentUser);
+  }
+
+  /**
+   * 7. Get Non-Clinical Student Analysis Results
+   * Returns domain interpretation paragraphs without raw numeric scores, bands, or facet data.
+   */
+  async getStudentResults(assessmentKey, studentUser) {
+    const key = (assessmentKey || "ipip-neo-120").toLowerCase().trim();
+
+    // Query AssessmentScore for this student and assessment key
+    const score = await AssessmentScore.findOne({
+      $or: [{ studentId: studentUser._id }, { clientId: studentUser._id }],
+      assessmentKey: { $regex: new RegExp(`^${key}$`, "i") },
+    })
+      .sort({ version: -1 })
+      .populate("assessmentDefinitionId", "title code category");
+
+    if (!score) {
+      throw new ApiError(404, "No completed assessment results found for this student.");
+    }
+
+    const session = await AssessmentSession.findById(score.sessionId);
+    const domainScores = score.domainScores || score.dimensionScores || [];
+
+    const domainConfig = studentInterpretationsConfig.domains || {};
+    const domainOrder = ["O", "C", "E", "A", "N"];
+    const insights = [];
+
+    for (const code of domainOrder) {
+      const domScore = domainScores.find((d) => d.domain === code || d.code === code);
+      const domInfo = domainConfig[code];
+      if (domScore && domInfo) {
+        const band = domScore.band || "Moderate";
+        const text = domInfo.bands[band] || domInfo.bands["Moderate"];
+        insights.push({
+          code,
+          label: domInfo.label,
+          text,
+        });
+      }
+    }
+
+    // Return ONLY non-clinical data structure (strictly no numeric scores, bands, or facets)
+    return {
+      assessmentName: score.assessmentDefinitionId?.title || "Career Assessment",
+      completedAt: session?.submittedAt || session?.completedAt || score.calculatedAt || score.computedAt,
+      insights,
+    };
   }
 }
 

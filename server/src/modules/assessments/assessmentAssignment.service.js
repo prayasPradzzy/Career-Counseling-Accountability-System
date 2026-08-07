@@ -342,18 +342,22 @@ class AssessmentAssignmentService {
     } else if (filters.statusGroup) {
       switch (filters.statusGroup.toLowerCase()) {
         case "pending":
+        case "not_started":
           query.status = { $in: [ASSIGNMENT_STATUS.ASSIGNED, ASSIGNMENT_STATUS.SCHEDULED] };
+          break;
+        case "in_progress":
+          query.status = ASSIGNMENT_STATUS.IN_PROGRESS;
           break;
         case "submitted":
         case "completed":
-          query.status = ASSIGNMENT_STATUS.COMPLETED;
-          break;
-        case "reviewed":
-        case "under_review":
-          query.status = ASSIGNMENT_STATUS.UNDER_REVIEW;
-          break;
-        case "approved":
-          query.status = ASSIGNMENT_STATUS.APPROVED;
+          // Include legacy UNDER_REVIEW and APPROVED states in "completed" filter
+          query.status = {
+            $in: [
+              ASSIGNMENT_STATUS.COMPLETED,
+              ASSIGNMENT_STATUS.UNDER_REVIEW,
+              ASSIGNMENT_STATUS.APPROVED,
+            ],
+          };
           break;
         case "rejected":
         case "retake":

@@ -203,6 +203,13 @@ const assessmentScoreSchema = new mongoose.Schema(
       default: null,
     },
 
+    // Reference to previous score document if this is a retake/rescore
+    previousScoreId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "AssessmentScore",
+      default: null,
+    },
+
     // Score version (enables re-scoring without losing history)
     version: {
       type: Number,

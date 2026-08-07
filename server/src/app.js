@@ -106,7 +106,14 @@ app.use("/api/v1/admin", adminRoutes);
 app.use("/api/admin", adminRoutes);
 app.use("/api/v1/assessment-definitions", assessmentDefinitionRoutes);
 app.use("/api/v1/assessments/sessions", assessmentSessionRoutes);
+app.use("/api/assessments/sessions", assessmentSessionRoutes);
 app.use("/api/v1/assessments", assessmentAssignmentRoutes);
+app.use("/api/assessments", assessmentAssignmentRoutes);
+
+const { requireAuth } = require("./shared/middleware/auth.middleware");
+const assessmentSessionController = require("./modules/assessments/assessmentSession.controller");
+app.get("/api/student/assessments/:key/results", requireAuth, assessmentSessionController.getStudentResults);
+app.get("/api/v1/student/assessments/:key/results", requireAuth, assessmentSessionController.getStudentResults);
 
 // ============================================================
 // 404 HANDLER — Catch all unmatched routes

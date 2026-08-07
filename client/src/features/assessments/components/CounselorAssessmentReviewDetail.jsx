@@ -4,13 +4,12 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import {
   useAssignmentReviewDetail,
-  useApproveAssignment,
   useRejectAssignment,
-  useReviewAssignment,
 } from "@/features/assessments/hooks/useAssessmentAssignments";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { SectionCard } from "@/components/common/SectionCard";
 import DomainScoreCard from "./DomainScoreCard";
+import FacetScoreRow from "./FacetScoreRow";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
@@ -27,9 +26,7 @@ import {
 import { Textarea } from "@/components/ui/textarea";
 import {
   ArrowLeft,
-  CheckCircle2,
   Clock,
-  Eye,
   Loader2,
   RotateCcw,
   User,
@@ -40,17 +37,18 @@ import {
   FileText,
   AlertCircle,
   AlertTriangle,
-  HelpCircle,
+  CheckCircle2,
 } from "lucide-react";
 import { toast } from "sonner";
 
+// ── Status badge map ──────────────────────────────────────────────────────────
 const STATUS_BADGE_MAP = {
-  ASSIGNED: { variant: "secondary", label: "Assigned" },
+  ASSIGNED: { variant: "secondary", label: "Not Started" },
   SCHEDULED: { variant: "secondary", label: "Scheduled" },
   IN_PROGRESS: { variant: "amber", label: "In Progress" },
-  COMPLETED: { variant: "info", label: "Submitted" },
-  UNDER_REVIEW: { variant: "info", label: "Under Review" },
-  APPROVED: { variant: "emerald", label: "Approved" },
+  COMPLETED: { variant: "emerald", label: "Completed" },
+  UNDER_REVIEW: { variant: "emerald", label: "Completed" },
+  APPROVED: { variant: "emerald", label: "Completed" },
   REJECTED: { variant: "destructive", label: "Retake Requested" },
   EXPIRED: { variant: "secondary", label: "Expired" },
 };
@@ -78,15 +76,13 @@ export default function CounselorAssessmentReviewDetail({ assignmentId }) {
   const router = useRouter();
   const { data, isLoading, error, refetch } = useAssignmentReviewDetail(assignmentId);
 
-  const [actionDialog, setActionDialog] = useState({ open: false, type: null });
-  const [counselorNotes, setCounselorNotes] = useState("");
+  const [retakeDialog, setRetakeDialog] = useState(false);
+  const [retakeNotes, setRetakeNotes] = useState("");
   const [responseFilter, setResponseFilter] = useState("all");
 
-  const approveMutation = useApproveAssignment();
   const rejectMutation = useRejectAssignment();
-  const reviewMutation = useReviewAssignment();
 
-  // Guard: missing ID (e.g. Suspense hasn't resolved params yet)
+  // ── Guard: missing ID ─────────────────────────────────────────────────────
   if (!assignmentId || assignmentId === "undefined") {
     return (
       <div className="flex flex-col items-center justify-center min-h-[400px] space-y-3">
@@ -133,10 +129,11 @@ export default function CounselorAssessmentReviewDetail({ assignmentId }) {
     );
   }
 
+  // ── Unpack data ────────────────────────────────────────────────────────────
   const reviewData = data?.data || {};
   const assignment = reviewData.assignment || {};
   const session = reviewData.session || {};
-  const score = reviewData.score || {};
+  const score = reviewData.score || null;
   const rawResponses = reviewData.rawResponses || [];
 
   const def = assignment.assessmentDefinitionId || {};
@@ -146,60 +143,70 @@ export default function CounselorAssessmentReviewDetail({ assignmentId }) {
     label: assignment.status,
   };
 
-  const progressPercent = session.progress?.percentage ?? 0;
-  const canReview = assignment.status === "COMPLETED";
-  const canApprove =
-    assignment.status === "COMPLETED" || assignment.status === "UNDER_REVIEW";
-  const canReject =
-    assignment.status === "COMPLETED" || assignment.status === "UNDER_REVIEW";
+  // ── Data-wiring fixes ──────────────────────────────────────────────────────
+  // Progress: COMPLETED assignment is always 100%. Fall back to session value otherwise.
+  const isCompleted =
+    assignment.status === "COMPLETED" ||
+    assignment.status === "UNDER_REVIEW" ||
+    assignment.status === "APPROVED";
 
-  const handleOpenAction = (type) => {
-    setActionDialog({ open: true, type });
-    setCounselorNotes(assignment.counselorNotes || "");
+  const progressPercent = isCompleted
+    ? 100
+    : (session?.progress?.percentage ?? 0);
+
+  // Student name: firstName + lastName with fallbacks
+  const studentName =
+    [student.firstName, student.lastName].filter(Boolean).join(" ") ||
+    student.name ||
+    student.email ||
+    "Unknown Student";
+
+  // Submission timestamp: prefer session.submittedAt, then assignment.completedAt
+  const submittedAt = session?.submittedAt || assignment.completedAt || null;
+
+  // Duration
+  const durationSeconds = session?.timeSpentSeconds ?? null;
+
+  // Domain scores: try all known field names from the scoring engine
+  const domainScores =
+    score?.domainScores ||
+    score?.dimensionScores ||
+    score?.domains ||
+    [];
+
+  // Retake eligibility: can only retake a completed submission
+  const canRetake = isCompleted;
+
+  // ── Retake handlers ────────────────────────────────────────────────────────
+  const handleOpenRetake = () => {
+    setRetakeDialog(true);
+    setRetakeNotes(assignment.counselorNotes || "");
   };
 
-  const handleCloseAction = () => {
-    setActionDialog({ open: false, type: null });
-    setCounselorNotes("");
+  const handleCloseRetake = () => {
+    setRetakeDialog(false);
+    setRetakeNotes("");
   };
 
-  const handleExecuteAction = async () => {
-    const { type } = actionDialog;
+  const handleRetake = async () => {
+    if (!retakeNotes.trim()) {
+      toast.error("Please provide a reason explaining why a retake is required.");
+      return;
+    }
     try {
-      if (type === "approve") {
-        await approveMutation.mutateAsync({
-          assignmentId: assignment._id,
-          counselorNotes: counselorNotes || undefined,
-        });
-        toast.success("Assessment approved successfully.");
-      } else if (type === "reject") {
-        if (!counselorNotes.trim()) {
-          toast.error("Please provide notes explaining why a retake is requested.");
-          return;
-        }
-        await rejectMutation.mutateAsync({
-          assignmentId: assignment._id,
-          counselorNotes,
-        });
-        toast.success("Retake requested for student.");
-      } else if (type === "review") {
-        await reviewMutation.mutateAsync({
-          assignmentId: assignment._id,
-          counselorNotes: counselorNotes || undefined,
-        });
-        toast.success("Assessment marked as under review.");
-      }
-      handleCloseAction();
+      await rejectMutation.mutateAsync({
+        assignmentId: assignment._id,
+        counselorNotes: retakeNotes,
+      });
+      toast.success("Retake requested for student.");
+      handleCloseRetake();
       refetch();
     } catch (err) {
       toast.error(err?.response?.data?.message || "Action failed.");
     }
   };
 
-  const isActionPending =
-    approveMutation.isPending || rejectMutation.isPending || reviewMutation.isPending;
-
-  // Extract unique domains for filtering raw responses if desired
+  // ── Raw response filtering ─────────────────────────────────────────────────
   const domainsList = Array.from(
     new Set(rawResponses.map((r) => r.domain).filter(Boolean))
   );
@@ -211,7 +218,7 @@ export default function CounselorAssessmentReviewDetail({ assignmentId }) {
 
   return (
     <div className="space-y-6">
-      {/* Header */}
+      {/* ── Page Header ───────────────────────────────────────────────────────── */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-border/60">
         <div className="flex items-center gap-3">
           <Button
@@ -219,103 +226,84 @@ export default function CounselorAssessmentReviewDetail({ assignmentId }) {
             size="icon-sm"
             onClick={() => router.push("/assessments")}
             className="shrink-0"
+            aria-label="Back to assessment review list"
           >
             <ArrowLeft className="size-4" />
           </Button>
           <div>
             <div className="flex items-center gap-2 flex-wrap">
               <h1 className="text-xl md:text-2xl font-bold tracking-tight">
-                Review: {def.title || "Assessment"}
+                {def.title || "Assessment"} — Results
               </h1>
               <Badge variant={statusInfo.variant} className="text-xs">
                 {statusInfo.label}
               </Badge>
             </div>
-            <p className="text-xs text-muted-foreground">
-              Student: {student.firstName} {student.lastName} ({student.email})
+            <p className="text-xs text-muted-foreground mt-0.5">
+              {studentName}
+              {student.email && (
+                <span className="opacity-60"> · {student.email}</span>
+              )}
             </p>
           </div>
         </div>
 
-        {/* Action Header Controls */}
-        <div className="flex items-center gap-2 shrink-0">
-          {canReview && (
-            <Button
-              variant="outline"
-              size="sm"
-              className="text-xs gap-1 border-violet-300 text-violet-600 hover:bg-violet-50 dark:border-violet-700 dark:text-violet-400 dark:hover:bg-violet-950"
-              onClick={() => handleOpenAction("review")}
-            >
-              <Eye className="size-3.5" />
-              Mark Under Review
-            </Button>
-          )}
-          {canApprove && (
-            <Button
-              size="sm"
-              className="text-xs gap-1 bg-emerald-600 hover:bg-emerald-700 text-white"
-              onClick={() => handleOpenAction("approve")}
-            >
-              <CheckCircle2 className="size-3.5" />
-              Approve Assessment
-            </Button>
-          )}
-          {canReject && (
-            <Button
-              variant="destructive"
-              size="sm"
-              className="text-xs gap-1"
-              onClick={() => handleOpenAction("reject")}
-            >
-              <RotateCcw className="size-3.5" />
-              Request Retake
-            </Button>
-          )}
-        </div>
+        {/* Header Actions — only Retake for completed submissions */}
+        {canRetake && (
+          <Button
+            variant="destructive"
+            size="sm"
+            className="text-xs gap-1.5 shrink-0"
+            onClick={handleOpenRetake}
+          >
+            <RotateCcw className="size-3.5" />
+            Request Retake
+          </Button>
+        )}
       </div>
 
-      {/* Summary Metadata Grid */}
+      {/* ── Summary Info Cards ─────────────────────────────────────────────────── */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        {/* Student Name */}
         <div className="p-4 rounded-xl border border-border/60 bg-card space-y-1">
           <p className="text-xs text-muted-foreground flex items-center gap-1.5 font-medium">
             <User className="size-3.5 text-primary" /> Student Name
           </p>
-          <p className="text-sm font-semibold truncate">
-            {student.firstName} {student.lastName}
-          </p>
+          <p className="text-sm font-semibold truncate">{studentName}</p>
         </div>
 
+        {/* Completion Progress */}
         <div className="p-4 rounded-xl border border-border/60 bg-card space-y-1">
           <p className="text-xs text-muted-foreground flex items-center gap-1.5 font-medium">
             <Clock className="size-3.5 text-amber-500" /> Completion Progress
           </p>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 pt-0.5">
             <Progress value={progressPercent} className="h-2 flex-1" />
-            <span className="text-xs font-semibold">{Math.round(progressPercent)}%</span>
+            <span className="text-xs font-semibold tabular-nums">
+              {Math.round(progressPercent)}%
+            </span>
           </div>
         </div>
 
+        {/* Submission Time */}
         <div className="p-4 rounded-xl border border-border/60 bg-card space-y-1">
           <p className="text-xs text-muted-foreground flex items-center gap-1.5 font-medium">
             <Calendar className="size-3.5 text-blue-500" /> Submission Time
           </p>
-          <p className="text-xs font-medium">
-            {formatDate(session.submittedAt || assignment.completedAt)}
-          </p>
+          <p className="text-xs font-medium">{formatDate(submittedAt)}</p>
         </div>
 
+        {/* Duration */}
         <div className="p-4 rounded-xl border border-border/60 bg-card space-y-1">
           <p className="text-xs text-muted-foreground flex items-center gap-1.5 font-medium">
             <Timer className="size-3.5 text-violet-500" /> Duration Spent
           </p>
-          <p className="text-sm font-semibold">
-            {formatDuration(session.timeSpentSeconds)}
-          </p>
+          <p className="text-sm font-semibold">{formatDuration(durationSeconds)}</p>
         </div>
       </div>
 
-      {/* Quick-completion warning banner */}
-      {session.flagged && (
+      {/* ── Quick-completion warning banner ──────────────────────────────────── */}
+      {session?.flagged && (
         <div className="flex items-start gap-3 p-4 rounded-xl bg-amber-500/10 border border-amber-500/30">
           <AlertTriangle className="size-4 text-amber-500 shrink-0 mt-0.5" />
           <div className="space-y-0.5">
@@ -323,19 +311,20 @@ export default function CounselorAssessmentReviewDetail({ assignmentId }) {
               Unusually Quick Submission
             </p>
             <p className="text-xs text-amber-700/80 dark:text-amber-400/80 leading-relaxed">
-              This assessment ({session.progress?.totalQuestions ?? "120"} items) was completed in{" "}
-              <span className="font-semibold">{formatDuration(session.timeSpentSeconds)}</span> — under 5 minutes.
-              Review individual responses carefully before approving.
+              This assessment ({session?.progress?.totalQuestions ?? "120"} items) was
+              completed in{" "}
+              <span className="font-semibold">{formatDuration(durationSeconds)}</span> — under
+              5 minutes. Review the raw responses carefully before proceeding.
             </p>
           </div>
         </div>
       )}
 
-      {/* Counselor Notes Display if present */}
+      {/* ── Counselor notes (retake reason) if present ───────────────────────── */}
       {assignment.counselorNotes && (
         <div className="p-4 rounded-xl bg-muted/40 border border-border/60 space-y-1">
           <p className="text-xs font-semibold text-muted-foreground flex items-center gap-1.5">
-            <FileText className="size-3.5" /> Counselor Review Notes
+            <FileText className="size-3.5" /> Retake Request Notes
           </p>
           <p className="text-xs text-foreground leading-relaxed whitespace-pre-wrap">
             {assignment.counselorNotes}
@@ -343,7 +332,7 @@ export default function CounselorAssessmentReviewDetail({ assignmentId }) {
         </div>
       )}
 
-      {/* Main Detail Content Tabs */}
+      {/* ── Main Detail Tabs ─────────────────────────────────────────────────── */}
       <Tabs defaultValue="scores" className="space-y-4">
         <TabsList>
           <TabsTrigger value="scores" className="gap-1.5 text-xs">
@@ -357,19 +346,26 @@ export default function CounselorAssessmentReviewDetail({ assignmentId }) {
           </TabsTrigger>
         </TabsList>
 
-        {/* Tab 1: Domain Scores Summary */}
+        {/* ── Tab 1: Domain Scores Summary ───────────────────────────────────── */}
         <TabsContent value="scores" className="space-y-4">
-          {!score || (!score.domainScores && !score.dimensionScores) || (score.domainScores || score.dimensionScores).length === 0 ? (
+          {domainScores.length === 0 ? (
             <SectionCard title="Scores Summary">
-              <p className="text-xs text-muted-foreground italic py-4">
-                No computed scores available yet. Score computation occurs upon student submission.
-              </p>
+              {isCompleted ? (
+                <p className="text-xs text-muted-foreground italic py-4">
+                  Scores are being computed. If this persists, the scoring engine may need
+                  to be re-triggered for this session.
+                </p>
+              ) : (
+                <p className="text-xs text-muted-foreground italic py-4">
+                  Score computation occurs upon student submission. No scores yet.
+                </p>
+              )}
             </SectionCard>
           ) : (
             <div className="space-y-4">
-              {(score.domainScores || score.dimensionScores || []).map((dom, idx) => (
+              {domainScores.map((dom, idx) => (
                 <DomainScoreCard
-                  key={dom.domain || dom.dimensionName || idx}
+                  key={dom.domain || dom.dimensionName || dom.name || idx}
                   domain={dom}
                   defaultExpanded={false}
                 />
@@ -382,9 +378,9 @@ export default function CounselorAssessmentReviewDetail({ assignmentId }) {
           )}
         </TabsContent>
 
-        {/* Tab 2: Facet Breakdowns */}
+        {/* ── Tab 2: Facet Breakdowns ────────────────────────────────────────── */}
         <TabsContent value="facets" className="space-y-4">
-          {!score || !score.dimensionScores || score.dimensionScores.length === 0 ? (
+          {domainScores.length === 0 ? (
             <SectionCard title="Facet Scores">
               <p className="text-xs text-muted-foreground italic py-4">
                 No facet scores available.
@@ -392,47 +388,34 @@ export default function CounselorAssessmentReviewDetail({ assignmentId }) {
             </SectionCard>
           ) : (
             <div className="space-y-6">
-              {score.dimensionScores.map((dim, dIdx) => (
-                <SectionCard
-                  key={dIdx}
-                  title={`${dim.dimensionName} Facets`}
-                  subtitle={`Detailed breakdown of sub-traits under ${dim.dimensionName}`}
-                >
-                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 pt-2">
-                    {(dim.facetScores || []).map((facet, fIdx) => (
-                      <div
-                        key={fIdx}
-                        className="p-3 rounded-lg border border-border/40 bg-muted/20 space-y-2"
-                      >
-                        <div className="flex justify-between items-start gap-2">
-                          <span className="text-xs font-medium truncate">
-                            {facet.facetName}
-                          </span>
-                          <span className="text-xs font-bold text-primary">
-                            {Math.round(facet.normalizedScore)}%
-                          </span>
-                        </div>
-                        <Progress value={facet.normalizedScore} className="h-1.5" />
-                        <div className="flex justify-between text-[10px] text-muted-foreground">
-                          <span>Raw: {facet.rawScore}</span>
-                          {facet.qualitativeLevel && (
-                            <span className="font-medium">{facet.qualitativeLevel}</span>
-                          )}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </SectionCard>
-              ))}
+              {domainScores.map((dim, dIdx) => {
+                const facets = dim.facetScores || dim.facets || [];
+                if (facets.length === 0) return null;
+                const dimName =
+                  dim.dimensionName || dim.domainName || dim.name || `Domain ${dIdx + 1}`;
+                return (
+                  <SectionCard
+                    key={dIdx}
+                    title={`${dimName} — Facets`}
+                    subtitle={`Detailed breakdown of sub-traits under ${dimName}`}
+                  >
+                    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 pt-2">
+                      {facets.map((facet, fIdx) => (
+                        <FacetScoreRow key={fIdx} facet={facet} />
+                      ))}
+                    </div>
+                  </SectionCard>
+                );
+              })}
             </div>
           )}
         </TabsContent>
 
-        {/* Tab 3: Raw Responses Table */}
+        {/* ── Tab 3: Raw Responses Table ─────────────────────────────────────── */}
         <TabsContent value="raw" className="space-y-4">
           <SectionCard
             title="Raw Student Responses"
-            subtitle="Complete item-by-item student answers (Read-Only)"
+            subtitle="Complete item-by-item student answers — counselor view only"
             action={
               domainsList.length > 0 && (
                 <div className="flex items-center gap-1.5">
@@ -455,7 +438,9 @@ export default function CounselorAssessmentReviewDetail({ assignmentId }) {
           >
             {filteredResponses.length === 0 ? (
               <p className="text-xs text-muted-foreground italic py-4">
-                No response items found.
+                {isCompleted
+                  ? "No response records found for this session."
+                  : "The student has not submitted responses yet."}
               </p>
             ) : (
               <div className="overflow-x-auto pt-2">
@@ -482,7 +467,10 @@ export default function CounselorAssessmentReviewDetail({ assignmentId }) {
                         <td className="py-2 px-3 font-medium text-foreground">
                           {resp.questionText}
                           {resp.reverseScored && (
-                            <span className="ml-1.5 text-[10px] text-amber-500 font-mono" title="Reverse Scored Item">
+                            <span
+                              className="ml-1.5 text-[10px] text-amber-500 font-mono"
+                              title="Reverse Scored Item"
+                            >
                               (R)
                             </span>
                           )}
@@ -504,7 +492,9 @@ export default function CounselorAssessmentReviewDetail({ assignmentId }) {
                           {resp.selectedValue}
                         </td>
                         <td className="py-2 px-3 text-center font-mono text-muted-foreground text-[10px]">
-                          {resp.responseTimeMs ? `${(resp.responseTimeMs / 1000).toFixed(1)}s` : "—"}
+                          {resp.responseTimeMs
+                            ? `${(resp.responseTimeMs / 1000).toFixed(1)}s`
+                            : "—"}
                         </td>
                       </tr>
                     ))}
@@ -516,63 +506,47 @@ export default function CounselorAssessmentReviewDetail({ assignmentId }) {
         </TabsContent>
       </Tabs>
 
-      {/* Action Dialog */}
-      <Dialog open={actionDialog.open} onOpenChange={(open) => !open && handleCloseAction()}>
+      {/* ── Retake Request Dialog ─────────────────────────────────────────────── */}
+      <Dialog open={retakeDialog} onOpenChange={(open) => !open && handleCloseRetake()}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
-            <DialogTitle>
-              {actionDialog.type === "approve" && "Approve Assessment"}
-              {actionDialog.type === "reject" && "Request Retake"}
-              {actionDialog.type === "review" && "Mark Under Review"}
-            </DialogTitle>
+            <DialogTitle>Request Retake</DialogTitle>
             <DialogDescription>
-              {actionDialog.type === "approve" &&
-                "Approval is an optional QA step. The student's next assessment unlocks automatically upon submission — approving confirms this submission is trustworthy and records your sign-off."}
-              {actionDialog.type === "reject" &&
-                "The student will be asked to retake this assessment. A clear explanation is required so they understand what to address."}
-              {actionDialog.type === "review" &&
-                "Mark this submission as under review while you evaluate the details. No student action is triggered."}
+              The student will be asked to redo this assessment from scratch. A clear
+              explanation is required so they understand what to address.
             </DialogDescription>
           </DialogHeader>
 
           <div className="space-y-3 py-2">
             <label className="text-xs font-medium text-muted-foreground">
-              Counselor Notes {actionDialog.type === "reject" && "(Required)"}
+              Reason for Retake{" "}
+              <span className="text-destructive">(Required)</span>
             </label>
             <Textarea
-              placeholder={
-                actionDialog.type === "reject"
-                  ? "Specify reasons for retake request..."
-                  : "Optional notes for the student/records..."
-              }
-              value={counselorNotes}
-              onChange={(e) => setCounselorNotes(e.target.value)}
-              rows={3}
+              placeholder="Explain why a retake is necessary — e.g. responses appear inconsistent, session was flagged for unusually fast completion, etc."
+              value={retakeNotes}
+              onChange={(e) => setRetakeNotes(e.target.value)}
+              rows={4}
               className="resize-none"
             />
           </div>
 
           <DialogFooter>
-            <DialogClose>
-              <Button variant="outline" size="sm">
+            <DialogClose asChild>
+              <Button variant="outline" size="sm" onClick={handleCloseRetake}>
                 Cancel
               </Button>
             </DialogClose>
             <Button
               size="sm"
-              disabled={isActionPending}
-              onClick={handleExecuteAction}
-              variant={actionDialog.type === "reject" ? "destructive" : "default"}
-              className={
-                actionDialog.type === "approve"
-                  ? "bg-emerald-600 hover:bg-emerald-700 text-white"
-                  : ""
-              }
+              variant="destructive"
+              disabled={rejectMutation.isPending}
+              onClick={handleRetake}
             >
-              {isActionPending && <Loader2 className="mr-1.5 size-3.5 animate-spin" />}
-              {actionDialog.type === "approve" && "Approve"}
-              {actionDialog.type === "reject" && "Request Retake"}
-              {actionDialog.type === "review" && "Mark Under Review"}
+              {rejectMutation.isPending && (
+                <Loader2 className="mr-1.5 size-3.5 animate-spin" />
+              )}
+              Request Retake
             </Button>
           </DialogFooter>
         </DialogContent>

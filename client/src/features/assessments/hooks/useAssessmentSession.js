@@ -6,6 +6,7 @@ export const SESSION_KEYS = {
   active: () => [...SESSION_KEYS.all, "active"],
   detail: (sessionId) => [...SESSION_KEYS.all, "detail", sessionId],
   questions: (sessionId) => [...SESSION_KEYS.all, "questions", sessionId],
+  results: (key) => [...SESSION_KEYS.all, "results", key],
 };
 
 export function useActiveSession() {
@@ -28,6 +29,14 @@ export function useSessionQuestions(sessionId) {
     queryKey: SESSION_KEYS.questions(sessionId),
     queryFn: () => assessmentSessionService.getQuestions(sessionId),
     enabled: Boolean(sessionId),
+  });
+}
+
+export function useMyAssessmentResults(key = "ipip-neo-120") {
+  return useQuery({
+    queryKey: SESSION_KEYS.results(key),
+    queryFn: () => assessmentSessionService.getMyResults(key),
+    enabled: Boolean(key),
   });
 }
 

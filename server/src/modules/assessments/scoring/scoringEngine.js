@@ -83,6 +83,7 @@ class ScoringEngine {
       overallCode: scorePayload.overallCode,
       overallScore: scorePayload.overallScore,
       version,
+      previousScoreId: existingScore ? existingScore._id : null,
       calculatedAt: new Date(),
       computedAt: new Date(),
       metadata: scorePayload.metadata || {},

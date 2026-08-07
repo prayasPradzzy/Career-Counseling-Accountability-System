@@ -1,0 +1,44 @@
+{
+  "domains": {
+    "O": {
+      "label": "Openness & Curiosity",
+      "bands": {
+        "High": "You're naturally curious and enjoy exploring new ideas, creative pursuits, and unconventional ways of thinking. You likely thrive in fields that reward imagination and fresh perspectives.",
+        "Moderate": "You bring a healthy mix of curiosity and practicality — open to new ideas while staying grounded in what's familiar and proven.",
+        "Low": "You tend to prefer familiar, practical approaches over abstract exploration. You likely do well in structured environments with clear, established methods."
+      }
+    },
+    "C": {
+      "label": "Organization & Discipline",
+      "bands": {
+        "High": "You're organized, dependable, and driven to follow through on your commitments. This kind of discipline is a strong asset in almost any career path.",
+        "Moderate": "You balance structure with flexibility — capable of staying on task while still adapting when plans change.",
+        "Low": "You tend to favor spontaneity over strict planning. Building small habits and routines could help you stay on track with longer-term goals."
+      }
+    },
+    "E": {
+      "label": "Social Energy",
+      "bands": {
+        "High": "You're energized by social interaction and tend to be outgoing, assertive, and comfortable taking the lead in group settings.",
+        "Moderate": "You're comfortable in both social and independent settings, adapting your energy to what a situation calls for.",
+        "Low": "You tend to recharge through quiet, independent time and may prefer smaller, more focused interactions over large group settings."
+      }
+    },
+    "A": {
+      "label": "Collaboration & Empathy",
+      "bands": {
+        "High": "You're naturally cooperative, empathetic, and attentive to the needs of others — a strong foundation for collaborative or people-centered work.",
+        "Moderate": "You balance cooperation with healthy assertiveness, able to work well with others while still advocating for yourself.",
+        "Low": "You tend to prioritize your own judgment and objectives, which can be a real strength in roles that call for direct decision-making."
+      }
+    },
+    "N": {
+      "label": "Emotional Sensitivity",
+      "bands": {
+        "High": "You tend to feel emotions intensely, which often comes with strong empathy and self-awareness. Building a few stress-management habits can help you channel this into a strength.",
+        "Moderate": "You generally manage stress and emotions in a balanced way, staying steady through most day-to-day ups and downs.",
+        "Low": "You tend to stay calm and even-keeled under pressure, which can be a real advantage in high-stress situations."
+      }
+    }
+  }
+}

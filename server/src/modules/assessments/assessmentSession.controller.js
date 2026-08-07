@@ -37,6 +37,12 @@ const getActiveSession = catchAsync(async (req, res) => {
   res.status(200).json(new ApiResponse(200, { activeSession: result }, "Active session checked successfully."));
 });
 
+const getStudentResults = catchAsync(async (req, res) => {
+  const { key } = req.params;
+  const result = await assessmentSessionService.getStudentResults(key, req.user);
+  res.status(200).json(new ApiResponse(200, result, "Student assessment analysis retrieved successfully."));
+});
+
 module.exports = {
   startOrResumeSession,
   getSessionState,
@@ -44,4 +50,5 @@ module.exports = {
   autosaveProgress,
   submitSession,
   getActiveSession,
+  getStudentResults,
 };

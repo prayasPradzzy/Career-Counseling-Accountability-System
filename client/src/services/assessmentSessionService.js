@@ -48,6 +48,14 @@ export const assessmentSessionService = {
     const response = await api.post(`/assessments/sessions/${sessionId}/submit`);
     return response.data;
   },
+
+  /**
+   * Fetch student's own non-clinical analysis results for an assessment
+   */
+  async getMyResults(key = "ipip-neo-120") {
+    const response = await api.get(`/student/assessments/${key}/results`);
+    return response.data;
+  },
 };
 
 export default assessmentSessionService;
