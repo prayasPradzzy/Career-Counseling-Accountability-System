@@ -16,11 +16,16 @@ function computeStudentCompleteness(profile) {
   if (profile.gender && profile.gender !== "prefer-not-to-say") filledFields++;
 
   // 3. Academic Institution
-  const edu = (Array.isArray(profile.education) && profile.education[0]) || profile.academic || {};
+  const edu =
+    (Array.isArray(profile.education) && profile.education[0]) ||
+    (profile.education && typeof profile.education === "object" && !Array.isArray(profile.education) ? profile.education : null) ||
+    profile.academic ||
+    {};
   if (edu.institution && edu.institution.trim().length > 0) filledFields++;
 
   // 4. Degree Program
-  if ((edu.degreeProgram || edu.degree) && (edu.degreeProgram || edu.degree).trim().length > 0) filledFields++;
+  const degreeVal = edu.degreeProgram || edu.degree;
+  if (degreeVal && String(degreeVal).trim().length > 0) filledFields++;
 
   // 5. Field of Study
   if (edu.fieldOfStudy && edu.fieldOfStudy.trim().length > 0) filledFields++;

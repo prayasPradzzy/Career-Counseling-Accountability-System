@@ -60,6 +60,13 @@ router.patch(
   controller.rejectAssignment
 );
 
+// Counselor/Admin recomputes assessment score
+router.post(
+  "/assignments/:assignmentId/rescore",
+  restrictTo("counselor", "admin"),
+  controller.rescoreAssignment
+);
+
 // Counselor/Admin revokes assignment
 router.delete(
   "/assignments/:assignmentId",

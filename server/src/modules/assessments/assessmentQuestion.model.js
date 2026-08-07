@@ -21,6 +21,7 @@ const QUESTION_TYPE = Object.freeze({
   OPEN_ENDED: "open-ended",
   TRUE_FALSE: "true-false",
   SLIDER: "slider",
+  CHECKBOX: "checkbox",
 });
 
 const assessmentQuestionSchema = new mongoose.Schema(

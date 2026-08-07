@@ -25,7 +25,7 @@ const LEGACY_STATUS_CONFIGS = {
   // Assessment Assignment statuses (uppercase enum values from backend)
   assigned: { label: "Assigned", className: "bg-blue-500/10 text-blue-600 border-blue-600/30 dark:text-blue-400" },
   in_progress: { label: "In Progress", className: "bg-amber-500/10 text-amber-600 border-amber-600/30 dark:text-amber-400" },
-  under_review: { label: "Under Review", className: "bg-purple-500/10 text-purple-600 border-purple-600/30 dark:text-purple-400" },
+  under_review: { label: "Completed", className: "bg-emerald-500/10 text-emerald-600 border-emerald-600/30 dark:text-emerald-400" },
   approved: { label: "Approved", className: "bg-emerald-500/10 text-emerald-600 border-emerald-600/30 dark:text-emerald-400" },
   rejected: { label: "Retake Required", className: "bg-destructive/10 text-destructive border-destructive/20" },
   expired: { label: "Expired", className: "bg-muted text-muted-foreground border-border" },

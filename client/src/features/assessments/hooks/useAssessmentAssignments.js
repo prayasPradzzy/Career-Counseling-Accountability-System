@@ -109,6 +109,17 @@ export function useRejectAssignment() {
   });
 }
 
+export function useRescoreAssignment() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (assignmentId) => assessmentAssignmentService.rescoreAssignment(assignmentId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ASSIGNMENT_KEYS.all });
+    },
+  });
+}
+
 export function useDeleteAssignment() {
   const queryClient = useQueryClient();
 

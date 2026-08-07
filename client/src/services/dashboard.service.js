@@ -52,7 +52,7 @@ export const dashboardService = {
       },
       {
         id: "profile-completion",
-        label: "Profile Completion",
+        label: "Intake Progress",
         value: `${completionPercentage}%`,
         note: completionPercentage < 100 ? "Details pending completion" : "Profile 100% complete",
         iconName: "Clock",

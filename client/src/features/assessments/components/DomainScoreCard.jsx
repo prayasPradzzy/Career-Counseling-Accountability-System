@@ -24,7 +24,16 @@ export function DomainScoreCard({ domain, defaultExpanded = false }) {
   const interpretation = domain.interpretation || domain.desc || "";
   const facetScores = domain.facetScores || [];
 
-  const percentage = domain.normalizedScore ?? Math.min(100, Math.max(0, Math.round(((rawScore - 1) / 4) * 100)));
+  const maxScore = domain.maxScore ?? (rawScore > 5 ? 10 : 5);
+  const percentage =
+    domain.normalizedScore ??
+    Math.min(
+      100,
+      Math.max(
+        0,
+        Math.round(maxScore === 10 ? (rawScore / 10) * 100 : Math.max(0, ((rawScore - 1) / 4) * 100))
+      )
+    );
 
   return (
     <div className="p-4 rounded-xl border border-border/60 bg-card space-y-3 shadow-xs">
@@ -44,7 +53,7 @@ export function DomainScoreCard({ domain, defaultExpanded = false }) {
             {band}
           </Badge>
           <span className="text-sm font-bold text-foreground font-mono">
-            {typeof rawScore === "number" ? rawScore.toFixed(1) : rawScore} / 5.0
+            {typeof rawScore === "number" ? (maxScore === 10 ? `${rawScore}` : rawScore.toFixed(1)) : rawScore} / {maxScore}
           </span>
           {facetScores.length > 0 && (
             <Button

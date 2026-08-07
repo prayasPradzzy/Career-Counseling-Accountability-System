@@ -190,6 +190,24 @@ const assessmentScoreSchema = new mongoose.Schema(
     // Domain-level dimension scores with nested facet breakdowns (backwards compatible)
     dimensionScores: [dimensionScoreSchema],
 
+    // Category scores list (for count-based assessments e.g. O*NET Interest Profiler RIASEC)
+    categoryScores: [
+      {
+        code: { type: String, default: "" },
+        name: { type: String, default: "" },
+        rawScore: { type: Number, default: 0 },
+        band: { type: String, enum: ["Low", "Moderate", "High", ""], default: "" },
+        normalizedScore: { type: Number, default: 0 },
+      },
+    ],
+
+    // Holland Code (e.g. "SEC" for RIASEC assessment)
+    hollandCode: {
+      type: String,
+      default: "",
+      trim: true,
+    },
+
     // Summary code (e.g., "O:HIGH | C:HIGH | E:MED | A:HIGH | N:LOW")
     overallCode: {
       type: String,

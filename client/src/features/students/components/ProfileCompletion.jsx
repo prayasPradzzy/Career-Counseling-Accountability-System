@@ -7,7 +7,7 @@ import { ProgressCard } from "@/components/common/ProgressCard";
 export function ProfileCompletion({ percentage = 0, className }) {
   return (
     <ProgressCard
-      title="Profile Completeness"
+      title="Intake Progress"
       subtitle="Evaluates demographics, academic history, career goals, skills, and consent status"
       percentage={percentage}
       iconName="Target"

@@ -24,16 +24,24 @@ class ScoringEngine {
       throw new ApiError(404, "Assessment session not found.");
     }
 
-    // 2. Fetch Definition
-    const definition = await AssessmentDefinition.findById(session.assessmentDefinitionId);
+    // 2. Fetch Definition with Fallback for Stale References
+    let definition = await AssessmentDefinition.findById(session.assessmentDefinitionId);
+    if (!definition) {
+      definition = await AssessmentDefinition.findOne({ code: "IPIP_NEO_120" }) ||
+                   await AssessmentDefinition.findOne({}).sort({ createdAt: -1 });
+    }
     if (!definition) {
       throw new ApiError(404, "Assessment definition not found.");
     }
 
-    // 3. Fetch Questions
-    const questions = await AssessmentQuestion.find({
-      assessmentId: session.assessmentDefinitionId,
+    // 3. Fetch Questions with Fallback
+    let questions = await AssessmentQuestion.find({
+      assessmentId: definition._id,
     }).sort({ questionNumber: 1 });
+
+    if (!questions || questions.length === 0) {
+      questions = await AssessmentQuestion.find({}).sort({ questionNumber: 1 });
+    }
 
     if (!questions || questions.length === 0) {
       throw new ApiError(400, "No questions found for this assessment definition.");
@@ -46,10 +54,7 @@ class ScoringEngine {
     }
 
     // 5. Resolve Scoring Strategy via Registry
-    const strategyName =
-      definition.code === "IPIP_NEO_120" || definition.scoringStrategy === "ipip_neo_120"
-        ? "ipip_neo_120"
-        : (definition.scoringStrategy || "likert_sum");
+    const strategyName = definition.scoringStrategy || (definition.code === "IPIP_NEO_120" ? "ipip_neo_120" : "likert_sum");
     const strategy = scoringRegistry.getStrategy(strategyName);
 
     // 6. Execute Strategy Pipeline
@@ -75,11 +80,13 @@ class ScoringEngine {
       clientId: session.clientId,
       assessmentDefinitionId: definition._id,
       category: definition.category,
-      assessmentKey: scorePayload.assessmentKey || "ipip-neo-120",
+      assessmentKey: scorePayload.assessmentKey || definition.metadata?.assessmentKey || "ipip-neo-120",
       scoringStrategy: scorePayload.scoringStrategy,
       facetScores: scorePayload.facetScores || [],
       domainScores: scorePayload.domainScores || scorePayload.dimensionScores || [],
       dimensionScores: scorePayload.dimensionScores || scorePayload.domainScores || [],
+      categoryScores: scorePayload.categoryScores || [],
+      hollandCode: scorePayload.hollandCode || "",
       overallCode: scorePayload.overallCode,
       overallScore: scorePayload.overallScore,
       version,

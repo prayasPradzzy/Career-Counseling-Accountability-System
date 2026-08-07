@@ -27,7 +27,7 @@ export function StudentCard({ student, onDelete, isAdmin = false, className }) {
       metaItems={[
         { label: "Contact Phone", value: student.phone || "N/A" },
         { label: "Assigned Counselor", value: counselorName },
-        { label: "Profile Completeness", value: `${student.completionPercentage || 0}%` },
+        { label: "Intake Progress", value: `${student.completionPercentage || 0}%` },
         { label: "Gender Identity", value: student.gender || "Not specified" },
       ]}
       action={

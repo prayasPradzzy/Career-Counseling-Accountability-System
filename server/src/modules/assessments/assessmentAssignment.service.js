@@ -4,6 +4,7 @@ const AssessmentDefinition = require("./assessmentDefinition.model");
 const User = require("../users/user.model");
 const StudentProfile = require("../profiles/studentProfile.model");
 const ApiError = require("../../shared/utils/ApiError");
+const { isSameId, canCounselorAccessStudent } = require("../../shared/utils/ownership.utils");
 const { deriveStudentLifecycleStatus, STUDENT_STATUS } = require("../../shared/constants/studentStatus.constants");
 
 class AssessmentAssignmentService {
@@ -377,16 +378,25 @@ class AssessmentAssignmentService {
     // Attach active/completed session progress summary to each assignment
     const assignmentIds = assignments.map((a) => a._id);
     const AssessmentSession = require("./assessmentSession.model");
+    const AssessmentScore = require("./assessmentScore.model");
+
     const sessions = await AssessmentSession.find({ assignmentId: { $in: assignmentIds } });
+    const sessionIds = sessions.map((s) => s._id);
+    const scores = await AssessmentScore.find({ sessionId: { $in: sessionIds } });
 
     const sessionMap = new Map();
     for (const s of sessions) {
       sessionMap.set(s.assignmentId.toString(), s);
     }
 
+    const scoreSet = new Set(scores.map((sc) => sc.sessionId.toString()));
+
     return assignments.map((a) => {
       const aObj = a.toObject();
       const s = sessionMap.get(a._id.toString());
+      const hasScore = s ? scoreSet.has(s._id.toString()) : false;
+
+      aObj.hasScore = hasScore;
       aObj.sessionSummary = s
         ? {
             sessionId: s._id,
@@ -397,6 +407,7 @@ class AssessmentAssignmentService {
             submittedAt: s.submittedAt,
             flagged: s.flagged || false,
             flagReason: s.flagReason || null,
+            hasScore,
           }
         : null;
       return aObj;
@@ -445,7 +456,7 @@ class AssessmentAssignmentService {
     }
 
     const assignment = await AssessmentAssignment.findById(assignmentId)
-      .populate("studentId", "firstName lastName email")
+      .populate("studentId", "firstName lastName email counselorId")
       .populate("counselorId", "firstName lastName email")
       .populate("assessmentDefinitionId", "title code category estimatedDuration description instructions scale metadata");
 
@@ -455,23 +466,28 @@ class AssessmentAssignmentService {
 
     // RBAC Check: Counselor can ONLY review assignments belonging to their own students
     if (requestingUser.role === "counselor") {
-      const counselorIdStr = requestingUser._id.toString();
-      const assignmentCounselorIdStr = assignment.counselorId ? (assignment.counselorId._id?.toString() || assignment.counselorId.toString()) : null;
+      const targetStudentId = assignment.studentId
+        ? assignment.studentId._id || assignment.studentId
+        : null;
 
-      const targetStudentId = assignment.studentId ? (assignment.studentId._id || assignment.studentId) : null;
-      const studentUser = targetStudentId ? await User.findById(targetStudentId) : null;
-      const userCounselorIdStr = studentUser && studentUser.counselorId ? studentUser.counselorId.toString() : null;
+      // Direct match: assignment.counselorId already points to this counselor
+      const assignmentCounselorAuthorized = assignment.counselorId && isSameId(assignment.counselorId, requestingUser._id);
 
-      const profile = targetStudentId ? await StudentProfile.findOne({ userId: targetStudentId }) : null;
-      const assignedIdStr = profile && profile.assignedCounselorId ? profile.assignedCounselorId.toString() : null;
-      const invitedByIdStr = profile && profile.invitedBy ? profile.invitedBy.toString() : null;
+      let isAuthorized = assignmentCounselorAuthorized;
 
-      if (
-        assignmentCounselorIdStr !== counselorIdStr &&
-        userCounselorIdStr !== counselorIdStr &&
-        assignedIdStr !== counselorIdStr &&
-        invitedByIdStr !== counselorIdStr
-      ) {
+      if (!isAuthorized && targetStudentId) {
+        // Fetch User (with counselorId) and StudentProfile for full ownership check
+        const [studentUser, studentProfile] = await Promise.all([
+          User.findById(targetStudentId).select("counselorId role"),
+          StudentProfile.findOne({ userId: targetStudentId }).select("assignedCounselorId invitedBy"),
+        ]);
+        isAuthorized = canCounselorAccessStudent(requestingUser._id, studentUser, studentProfile);
+      }
+
+      if (!isAuthorized) {
+        console.error(
+          `[ReviewDetail 403] Counselor ${requestingUser._id} denied access to assignment ${assignmentId} (student: ${targetStudentId}).`
+        );
         throw new ApiError(403, "Access denied: You can only review assessment details for your own assigned students.");
       }
     }
@@ -488,14 +504,23 @@ class AssessmentAssignmentService {
     let rawResponsesMapped = [];
 
     if (session) {
-      score = await AssessmentScore.findOne({ sessionId: session._id });
+      score = await AssessmentScore.findOne({ sessionId: session._id }).sort({ version: -1, createdAt: -1 });
       responseDoc = await AssessmentResponse.findOne({ sessionId: session._id });
 
       if (responseDoc && responseDoc.responses && responseDoc.responses.length > 0) {
-        // Fetch questions to build raw response map
-        const questions = await AssessmentQuestion.find({
-          assessmentId: assignment.assessmentDefinitionId._id,
-        }).sort({ questionNumber: 1 });
+        // Resolve assessment definition ID safely even if populate returned null
+        const targetAssessmentDefId =
+          assignment.assessmentDefinitionId?._id ||
+          assignment.assessmentDefinitionId ||
+          session.assessmentDefinitionId;
+
+        let questions = targetAssessmentDefId
+          ? await AssessmentQuestion.find({ assessmentId: targetAssessmentDefId }).sort({ questionNumber: 1 })
+          : [];
+
+        if (!questions || questions.length === 0) {
+          questions = await AssessmentQuestion.find({}).sort({ questionNumber: 1 });
+        }
 
         const scaleConfig = assignment.assessmentDefinitionId?.scale || {};
         const scaleLabels = scaleConfig.labels || {
@@ -506,13 +531,17 @@ class AssessmentAssignmentService {
           "5": "Agree Strongly",
         };
 
-        const questionMap = new Map();
+        const questionMapById = new Map();
+        const questionMapByNum = new Map();
         for (const q of questions) {
-          questionMap.set(q._id.toString(), q);
+          questionMapById.set(q._id.toString(), q);
+          questionMapByNum.set(q.questionNumber, q);
         }
 
         rawResponsesMapped = responseDoc.responses.map((resp) => {
-          const qObj = questionMap.get(resp.questionId.toString());
+          const qObj =
+            questionMapById.get(resp.questionId?.toString()) ||
+            questionMapByNum.get(resp.questionNumber);
           const optionLabel = scaleLabels[String(resp.selectedValue)] || null;
 
           return {
@@ -524,10 +553,13 @@ class AssessmentAssignmentService {
             reverseScored: qObj ? qObj.reverseScored : false,
             selectedValue: resp.selectedValue,
             selectedLabel: optionLabel,
-            responseTimeMs: resp.responseTimeMs,
+            responseTimeMs: resp.responseTimeMs || 0,
             answeredAt: resp.answeredAt,
           };
         });
+
+        // Bug 3 Fix: Always sort ascending by question number (1 -> 120)
+        rawResponsesMapped.sort((a, b) => (a.questionNumber || 0) - (b.questionNumber || 0));
       }
     }
 
@@ -540,7 +572,41 @@ class AssessmentAssignmentService {
   }
 
   /**
-   * 11. Revoke / Delete Assignment
+   * 11. Counselor Recomputes Score (Safety Net Action)
+   */
+  async rescoreAssignment(assignmentId, requestingUser) {
+    if (requestingUser.role !== "counselor" && requestingUser.role !== "admin") {
+      throw new ApiError(403, "Only counselors and administrators can recompute scores.");
+    }
+
+    const assignment = await AssessmentAssignment.findById(assignmentId);
+    if (!assignment) {
+      throw new ApiError(404, "Assessment assignment not found.");
+    }
+
+    const AssessmentSession = require("./assessmentSession.model");
+    const session = await AssessmentSession.findOne({ assignmentId: assignment._id });
+    if (!session) {
+      throw new ApiError(404, "No active or completed assessment session found for this assignment.");
+    }
+
+    const scoringEngine = require("./scoring/scoringEngine");
+    let scoreDoc = null;
+    try {
+      scoreDoc = await scoringEngine.calculateAndSaveScore(session._id);
+    } catch (err) {
+      console.error("SCORING ENGINE FAILURE:", err.message, err.stack);
+      throw new ApiError(500, `Failed to recompute assessment score: ${err.message}`);
+    }
+
+    return {
+      message: "Score recomputed successfully.",
+      score: scoreDoc,
+    };
+  }
+
+  /**
+   * 12. Revoke / Delete Assignment
    */
   async deleteAssignment(assignmentId, requestingUser) {
     if (requestingUser.role !== "counselor" && requestingUser.role !== "admin") {

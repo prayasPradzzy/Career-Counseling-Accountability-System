@@ -199,6 +199,10 @@ class AssessmentSessionService {
 
     // Shared Scale Options derived directly from AssessmentDefinition.scale
     const scaleConfig = session.assessmentDefinitionId?.scale || {};
+    const isCheckbox =
+      session.assessmentDefinitionId?.responseType === "checkbox" ||
+      scaleConfig.type === "boolean";
+
     const scaleLabels = scaleConfig.labels || {
       "1": "Disagree Strongly",
       "2": "Disagree a little",
@@ -207,12 +211,17 @@ class AssessmentSessionService {
       "5": "Agree Strongly",
     };
 
-    const sharedOptions = Object.entries(scaleLabels).map(([valueStr, label], idx) => ({
-      id: `opt-${valueStr}`,
-      label,
-      value: Number(valueStr),
-      order: idx + 1,
-    }));
+    const sharedOptions = isCheckbox
+      ? [
+          { id: "opt-true", label: "I would like to do this", value: 1, order: 1 },
+          { id: "opt-false", label: "Not selected", value: 0, order: 2 },
+        ]
+      : Object.entries(scaleLabels).map(([valueStr, label], idx) => ({
+          id: `opt-${valueStr}`,
+          label,
+          value: Number(valueStr),
+          order: idx + 1,
+        }));
 
     // Attach options and saved answer state to questions
     const structuredQuestions = questions.map((q) => {
@@ -226,7 +235,7 @@ class AssessmentSessionService {
         text: q.text,
         domain: q.domain,
         facet: q.facet,
-        questionType: q.questionType,
+        questionType: q.questionType || session.assessmentDefinitionId?.responseType || "likert",
         required: q.required,
         options: sharedOptions,
         savedResponse: saved ? saved.selectedValue : null,
@@ -292,11 +301,15 @@ class AssessmentSessionService {
         );
 
         if (existingIndex >= 0) {
-          responseDoc.responses[existingIndex].selectedValue = item.selectedValue;
+          const existingItem = responseDoc.responses[existingIndex];
+          const valueChanged = existingItem.selectedValue !== item.selectedValue;
+          existingItem.selectedValue = item.selectedValue;
           if (item.responseTimeMs) {
-            responseDoc.responses[existingIndex].responseTimeMs = item.responseTimeMs;
+            existingItem.responseTimeMs = item.responseTimeMs;
           }
-          responseDoc.responses[existingIndex].answeredAt = new Date();
+          if (valueChanged || !existingItem.answeredAt) {
+            existingItem.answeredAt = new Date();
+          }
         } else {
           responseDoc.responses.push({
             questionId: item.questionId,
@@ -435,7 +448,15 @@ class AssessmentSessionService {
     await session.save();
 
     // Trigger Strategy-Based Scoring Engine
-    const scoreDoc = await scoringEngine.calculateAndSaveScore(session._id);
+    let scoreDoc = null;
+    try {
+      scoreDoc = await scoringEngine.calculateAndSaveScore(session._id);
+    } catch (err) {
+      console.error("SCORING ENGINE FAILURE:", err.message, err.stack);
+      session.metadata = { ...(session.metadata || {}), scoringError: err.message, scoringFailedAt: new Date() };
+      await session.save().catch(() => {});
+      throw new ApiError(500, `Assessment submitted, but automatic scoring engine failed: ${err.message}`);
+    }
 
     // Update linked AssessmentAssignment to COMPLETED
     if (session.assignmentId) {
@@ -501,6 +522,38 @@ class AssessmentSessionService {
     }
 
     const session = await AssessmentSession.findById(score.sessionId);
+
+    // O*NET Interest Profiler / RIASEC Holland branch
+    if (
+      key.includes("onet") ||
+      key.includes("interest") ||
+      score.scoringStrategy === "riasec_holland"
+    ) {
+      const onetConfig = require("../../config/onetStudentInterpretations.json");
+      const hollandCode = score.hollandCode || score.metadata?.hollandCode || "SEC";
+      const top3Codes = hollandCode.split("").slice(0, 3);
+
+      const insights = [];
+      for (const code of top3Codes) {
+        const catInfo = onetConfig.categories[code];
+        if (catInfo) {
+          insights.push({
+            code,
+            label: catInfo.label,
+            text: catInfo.text,
+          });
+        }
+      }
+
+      return {
+        assessmentName: score.assessmentDefinitionId?.title || "O*NET Interest Profiler",
+        completedAt: session?.submittedAt || session?.completedAt || score.calculatedAt || score.computedAt,
+        hollandCode,
+        insights,
+      };
+    }
+
+    // Default IPIP-NEO-120 Five Factor Personality branch
     const domainScores = score.domainScores || score.dimensionScores || [];
 
     const domainConfig = studentInterpretationsConfig.domains || {};

@@ -49,7 +49,7 @@ export function OverviewSection({ profile, onTransferOwnership, isAdmin = false 
       {/* Top Grid: Completeness & Assigned Counselor Card */}
       <WidgetGrid cols={{ default: 1, lg: 2 }} gap="gap-6">
         <ProgressCard
-          title="Profile Completeness"
+          title="Intake Progress"
           subtitle="Demographics, education, career goals, skills, and consent status"
           percentage={profile?.completionPercentage || 0}
           iconName="Target"

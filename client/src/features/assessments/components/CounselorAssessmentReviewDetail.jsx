@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import {
   useAssignmentReviewDetail,
   useRejectAssignment,
+  useRescoreAssignment,
 } from "@/features/assessments/hooks/useAssessmentAssignments";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { SectionCard } from "@/components/common/SectionCard";
@@ -38,6 +39,7 @@ import {
   AlertCircle,
   AlertTriangle,
   CheckCircle2,
+  RefreshCw,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -81,6 +83,7 @@ export default function CounselorAssessmentReviewDetail({ assignmentId }) {
   const [responseFilter, setResponseFilter] = useState("all");
 
   const rejectMutation = useRejectAssignment();
+  const rescoreMutation = useRescoreAssignment();
 
   // ── Guard: missing ID ─────────────────────────────────────────────────────
   if (!assignmentId || assignmentId === "undefined") {
@@ -144,7 +147,6 @@ export default function CounselorAssessmentReviewDetail({ assignmentId }) {
   };
 
   // ── Data-wiring fixes ──────────────────────────────────────────────────────
-  // Progress: COMPLETED assignment is always 100%. Fall back to session value otherwise.
   const isCompleted =
     assignment.status === "COMPLETED" ||
     assignment.status === "UNDER_REVIEW" ||
@@ -161,7 +163,7 @@ export default function CounselorAssessmentReviewDetail({ assignmentId }) {
     student.email ||
     "Unknown Student";
 
-  // Submission timestamp: prefer session.submittedAt, then assignment.completedAt
+  // Submission timestamp
   const submittedAt = session?.submittedAt || assignment.completedAt || null;
 
   // Duration
@@ -174,13 +176,24 @@ export default function CounselorAssessmentReviewDetail({ assignmentId }) {
     score?.domains ||
     [];
 
-  // Retake eligibility: can only retake a completed submission
+  const isOnetInterest =
+    def.code === "ONET_INTEREST_PROFILER_SHORT" ||
+    def.category === "interest" ||
+    score?.scoringStrategy === "riasec_holland" ||
+    Boolean(score?.hollandCode);
+
+  const hollandCode = score?.hollandCode || score?.metadata?.hollandCode || "";
+  const displayScores = isOnetInterest && score?.categoryScores?.length > 0
+    ? score.categoryScores
+    : domainScores;
+
+  // Retake eligibility
   const canRetake = isCompleted;
 
   // ── Retake handlers ────────────────────────────────────────────────────────
   const handleOpenRetake = () => {
     setRetakeDialog(true);
-    setRetakeNotes(assignment.counselorNotes || "");
+    setRetakeNotes("");
   };
 
   const handleCloseRetake = () => {
@@ -206,7 +219,18 @@ export default function CounselorAssessmentReviewDetail({ assignmentId }) {
     }
   };
 
-  // ── Raw response filtering ─────────────────────────────────────────────────
+  // ── Recompute score handler (Safety Net Action) ───────────────────────────
+  const handleRescore = async () => {
+    try {
+      await rescoreMutation.mutateAsync(assignment._id);
+      toast.success("Assessment score recomputed successfully.");
+      refetch();
+    } catch (err) {
+      toast.error(err?.response?.data?.message || "Failed to recompute score.");
+    }
+  };
+
+  // ── Raw response filtering & sorting ───────────────────────────────────────
   const domainsList = Array.from(
     new Set(rawResponses.map((r) => r.domain).filter(Boolean))
   );
@@ -215,6 +239,11 @@ export default function CounselorAssessmentReviewDetail({ assignmentId }) {
     responseFilter === "all"
       ? rawResponses
       : rawResponses.filter((r) => r.domain === responseFilter);
+
+  // Bug 3 Fix: Always sort ascending 1 -> 120
+  const sortedResponses = [...filteredResponses].sort(
+    (a, b) => (a.questionNumber || 0) - (b.questionNumber || 0)
+  );
 
   return (
     <div className="space-y-6">
@@ -248,18 +277,33 @@ export default function CounselorAssessmentReviewDetail({ assignmentId }) {
           </div>
         </div>
 
-        {/* Header Actions — only Retake for completed submissions */}
-        {canRetake && (
-          <Button
-            variant="destructive"
-            size="sm"
-            className="text-xs gap-1.5 shrink-0"
-            onClick={handleOpenRetake}
-          >
-            <RotateCcw className="size-3.5" />
-            Request Retake
-          </Button>
-        )}
+        {/* Header Actions */}
+        <div className="flex items-center gap-2 shrink-0">
+          {isCompleted && (
+            <Button
+              variant="outline"
+              size="sm"
+              className="text-xs gap-1.5"
+              disabled={rescoreMutation.isPending}
+              onClick={handleRescore}
+            >
+              <RefreshCw className={`size-3.5 ${rescoreMutation.isPending ? "animate-spin" : ""}`} />
+              Recompute Score
+            </Button>
+          )}
+
+          {canRetake && (
+            <Button
+              variant="destructive"
+              size="sm"
+              className="text-xs gap-1.5"
+              onClick={handleOpenRetake}
+            >
+              <RotateCcw className="size-3.5" />
+              Request Retake
+            </Button>
+          )}
+        </div>
       </div>
 
       {/* ── Summary Info Cards ─────────────────────────────────────────────────── */}
@@ -346,34 +390,59 @@ export default function CounselorAssessmentReviewDetail({ assignmentId }) {
           </TabsTrigger>
         </TabsList>
 
-        {/* ── Tab 1: Domain Scores Summary ───────────────────────────────────── */}
+        {/* ── Tab 1: Scores Summary ───────────────────────────────────────────── */}
         <TabsContent value="scores" className="space-y-4">
-          {domainScores.length === 0 ? (
+          {/* Prominent Holland Code Badge for O*NET Interest Profiler */}
+          {hollandCode && (
+            <div className="p-6 rounded-2xl bg-gradient-to-r from-emerald-500/10 via-primary/10 to-blue-500/10 border border-emerald-500/30 flex flex-col sm:flex-row items-center justify-between gap-4 shadow-xs">
+              <div>
+                <div className="text-xs uppercase font-mono font-bold tracking-wider text-emerald-600 dark:text-emerald-400">
+                  Primary Assessment Takeaway
+                </div>
+                <h3 className="text-3xl font-extrabold font-mono tracking-tight text-foreground mt-1">
+                  Holland Code: <span className="text-emerald-600 dark:text-emerald-400">{hollandCode}</span>
+                </h3>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Your top three interest areas, ranked in order of student interest strength.
+                </p>
+              </div>
+              <Badge variant="outline" className="text-sm font-mono px-4 py-2 border-emerald-500/40 text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 shrink-0">
+                Top 3 Interests: {hollandCode}
+              </Badge>
+            </div>
+          )}
+
+          {displayScores.length === 0 ? (
             <SectionCard title="Scores Summary">
-              {isCompleted ? (
-                <p className="text-xs text-muted-foreground italic py-4">
-                  Scores are being computed. If this persists, the scoring engine may need
-                  to be re-triggered for this session.
+              <div className="py-6 text-center space-y-3">
+                <p className="text-xs text-muted-foreground italic">
+                  {isCompleted
+                    ? "Scores are not yet available for this submission."
+                    : "Score computation occurs upon student submission. No scores yet."}
                 </p>
-              ) : (
-                <p className="text-xs text-muted-foreground italic py-4">
-                  Score computation occurs upon student submission. No scores yet.
-                </p>
-              )}
+                {isCompleted && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="text-xs gap-1.5"
+                    disabled={rescoreMutation.isPending}
+                    onClick={handleRescore}
+                  >
+                    <RefreshCw className={`size-3.5 ${rescoreMutation.isPending ? "animate-spin" : ""}`} />
+                    Trigger Score Engine Now
+                  </Button>
+                )}
+              </div>
             </SectionCard>
           ) : (
             <div className="space-y-4">
-              {domainScores.map((dom, idx) => (
+              {displayScores.map((dom, idx) => (
                 <DomainScoreCard
-                  key={dom.domain || dom.dimensionName || dom.name || idx}
+                  key={dom.code || dom.domain || dom.dimensionName || dom.name || idx}
                   domain={dom}
                   defaultExpanded={false}
                 />
               ))}
-              <div className="pt-2 flex items-center gap-1.5 text-xs text-muted-foreground italic">
-                <FileText className="size-3.5 shrink-0" />
-                <span>Full narrative report generation coming soon</span>
-              </div>
             </div>
           )}
         </TabsContent>
@@ -411,11 +480,11 @@ export default function CounselorAssessmentReviewDetail({ assignmentId }) {
           )}
         </TabsContent>
 
-        {/* ── Tab 3: Raw Responses Table ─────────────────────────────────────── */}
+        {/* ── Tab 3: Raw Responses Table (Grouped by Section 1–4) ──────────────── */}
         <TabsContent value="raw" className="space-y-4">
           <SectionCard
             title="Raw Student Responses"
-            subtitle="Complete item-by-item student answers — counselor view only"
+            subtitle="Complete item-by-item student answers (Sorted 1 → 120, Grouped by Section)"
             action={
               domainsList.length > 0 && (
                 <div className="flex items-center gap-1.5">
@@ -443,63 +512,81 @@ export default function CounselorAssessmentReviewDetail({ assignmentId }) {
                   : "The student has not submitted responses yet."}
               </p>
             ) : (
-              <div className="overflow-x-auto pt-2">
-                <table className="w-full text-xs text-left border-collapse">
-                  <thead>
-                    <tr className="border-b border-border/80 text-muted-foreground bg-muted/40 font-medium">
-                      <th className="py-2.5 px-3 w-12 text-center">#</th>
-                      <th className="py-2.5 px-3 min-w-[200px]">Question Text</th>
-                      <th className="py-2.5 px-3 min-w-[120px]">Domain / Facet</th>
-                      <th className="py-2.5 px-3 min-w-[140px]">Student Selection</th>
-                      <th className="py-2.5 px-3 w-16 text-center">Value</th>
-                      <th className="py-2.5 px-3 w-20 text-center">Time</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-border/40">
-                    {filteredResponses.map((resp, idx) => (
-                      <tr
-                        key={idx}
-                        className="hover:bg-muted/20 transition-colors"
-                      >
-                        <td className="py-2 px-3 text-center font-mono text-muted-foreground">
-                          {resp.questionNumber}
-                        </td>
-                        <td className="py-2 px-3 font-medium text-foreground">
-                          {resp.questionText}
-                          {resp.reverseScored && (
-                            <span
-                              className="ml-1.5 text-[10px] text-amber-500 font-mono"
-                              title="Reverse Scored Item"
-                            >
-                              (R)
-                            </span>
-                          )}
-                        </td>
-                        <td className="py-2 px-3 text-muted-foreground">
-                          <span className="font-medium text-foreground">{resp.domain}</span>
-                          {resp.facet && (
-                            <span className="block text-[10px] text-muted-foreground">
-                              {resp.facet}
-                            </span>
-                          )}
-                        </td>
-                        <td className="py-2 px-3">
-                          <Badge variant="outline" className="text-[11px] font-normal">
-                            {resp.selectedLabel || `Option ${resp.selectedValue}`}
-                          </Badge>
-                        </td>
-                        <td className="py-2 px-3 text-center font-semibold font-mono">
-                          {resp.selectedValue}
-                        </td>
-                        <td className="py-2 px-3 text-center font-mono text-muted-foreground text-[10px]">
-                          {resp.responseTimeMs
-                            ? `${(resp.responseTimeMs / 1000).toFixed(1)}s`
-                            : "—"}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+              <div className="space-y-6 pt-2">
+                {[
+                  { title: "Part 1 — Section 1 (Items 1–30)", start: 1, end: 30 },
+                  { title: "Part 2 — Section 2 (Items 31–60)", start: 31, end: 60 },
+                  { title: "Part 3 — Section 3 (Items 61–90)", start: 61, end: 90 },
+                  { title: "Part 4 — Section 4 (Items 91–120)", start: 91, end: 120 },
+                ].map((part) => {
+                  const partResponses = sortedResponses.filter(
+                    (r) => r.questionNumber >= part.start && r.questionNumber <= part.end
+                  );
+                  if (partResponses.length === 0) return null;
+
+                  return (
+                    <div key={part.title} className="rounded-xl border border-border/80 overflow-hidden bg-card">
+                      <div className="bg-muted/50 px-4 py-2.5 border-b border-border/80 flex items-center justify-between">
+                        <span className="text-xs font-bold tracking-tight text-foreground">
+                          {part.title}
+                        </span>
+                        <Badge variant="outline" className="text-[10px]">
+                          {partResponses.length} items
+                        </Badge>
+                      </div>
+                      <div className="overflow-x-auto">
+                        <table className="w-full text-xs text-left border-collapse">
+                          <thead>
+                            <tr className="border-b border-border/60 text-muted-foreground bg-muted/20 font-medium">
+                              <th className="py-2.5 px-3 w-12 text-center">#</th>
+                              <th className="py-2.5 px-3 min-w-[220px]">Question Text</th>
+                              <th className="py-2.5 px-3 min-w-[140px]">Domain / Facet</th>
+                              <th className="py-2.5 px-3 min-w-[140px]">Student Selection</th>
+                              <th className="py-2.5 px-3 w-16 text-center">Value</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-border/40">
+                            {partResponses.map((resp, idx) => (
+                              <tr key={resp.questionId || idx} className="hover:bg-muted/20 transition-colors">
+                                <td className="py-2 px-3 text-center font-mono text-muted-foreground">
+                                  {resp.questionNumber}
+                                </td>
+                                <td className="py-2 px-3 font-medium text-foreground">
+                                  {resp.questionText}
+                                  {resp.reverseScored && (
+                                    <Badge
+                                      variant="outline"
+                                      className="ml-2 text-[10px] py-0 px-1.5 border-amber-500/40 text-amber-600 dark:text-amber-400 bg-amber-500/10 font-medium"
+                                      title="Reverse Scored Item: High response indicates a lower trait level"
+                                    >
+                                      Reverse Scored
+                                    </Badge>
+                                  )}
+                                </td>
+                                <td className="py-2 px-3 text-muted-foreground">
+                                  <span className="font-medium text-foreground">{resp.domain}</span>
+                                  {resp.facet && (
+                                    <span className="block text-[10px] text-muted-foreground">
+                                      {resp.facet}
+                                    </span>
+                                  )}
+                                </td>
+                                <td className="py-2 px-3">
+                                  <Badge variant="outline" className="text-[11px] font-normal">
+                                    {resp.selectedLabel || `Option ${resp.selectedValue}`}
+                                  </Badge>
+                                </td>
+                                <td className="py-2 px-3 text-center font-semibold font-mono">
+                                  {resp.selectedValue}
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
             )}
           </SectionCard>

@@ -47,15 +47,27 @@ class IPIPNEO120Strategy extends BaseScoringStrategy {
   async calculateScore({ session, definition, questions, responseDoc }) {
     const rawResponses = responseDoc ? responseDoc.responses : [];
     const answerMap = new Map();
+    const answerMapByNum = new Map();
     for (const r of rawResponses) {
-      answerMap.set(r.questionId.toString(), r.selectedValue);
+      if (r.questionId) {
+        answerMap.set(r.questionId.toString(), r.selectedValue);
+      }
+      if (typeof r.questionNumber === "number" && r.questionNumber > 0) {
+        answerMapByNum.set(r.questionNumber, r.selectedValue);
+      }
     }
 
     // Step 1 — Normalize each answer
     const itemScores = [];
     for (const q of questions) {
-      const qIdStr = q._id.toString();
-      const rawAnswer = answerMap.has(qIdStr) ? Number(answerMap.get(qIdStr)) : null;
+      const qIdStr = q._id ? q._id.toString() : "";
+      let rawAnswer = null;
+
+      if (qIdStr && answerMap.has(qIdStr)) {
+        rawAnswer = Number(answerMap.get(qIdStr));
+      } else if (typeof q.questionNumber === "number" && answerMapByNum.has(q.questionNumber)) {
+        rawAnswer = Number(answerMapByNum.get(q.questionNumber));
+      }
 
       if (rawAnswer === null || isNaN(rawAnswer)) continue;
 

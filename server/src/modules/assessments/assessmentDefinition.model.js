@@ -48,6 +48,13 @@ const assessmentDefinitionSchema = new mongoose.Schema(
       index: true,
     },
 
+    // Question response type (e.g., "likert", "checkbox", "ranking")
+    responseType: {
+      type: String,
+      default: "likert",
+      trim: true,
+    },
+
     // Assessment category
     category: {
       type: String,

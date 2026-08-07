@@ -4,7 +4,7 @@ import { useState } from "react";
 import { useAuth } from "@/context/AuthContext";
 import { useMyAssignments } from "@/features/assessments/hooks/useAssessmentAssignments";
 import { useStartOrResumeSession, useActiveSession } from "@/features/assessments/hooks/useAssessmentSession";
-import { StudentAssessmentRunner, CounselorAssessmentDashboard } from "@/features/assessments";
+import { StudentAssessmentRunner, CounselorAssessmentDashboard, StudentResultsViewer } from "@/features/assessments";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { WidgetGrid } from "@/components/layout/WidgetGrid";
 import { SectionCard } from "@/components/common/SectionCard";
@@ -20,12 +20,14 @@ import {
   Play,
   CalendarDays,
   Timer,
+  Eye,
 } from "lucide-react";
 import { toast } from "sonner";
 
 export default function AssessmentsPage() {
   const { user } = useAuth();
   const [activeSessionId, setActiveSessionId] = useState(null);
+  const [viewResultsKey, setViewResultsKey] = useState(null);
 
   const isCounselorOrAdmin = user?.role === "counselor" || user?.role === "admin";
 
@@ -57,6 +59,16 @@ export default function AssessmentsPage() {
       toast.error(err?.response?.data?.message || "Unable to start assessment.");
     }
   };
+
+  // If viewing results for a completed assessment, display the StudentResultsViewer
+  if (viewResultsKey) {
+    return (
+      <StudentResultsViewer
+        assessmentKey={viewResultsKey}
+        onBack={() => setViewResultsKey(null)}
+      />
+    );
+  }
 
   // If a session is active in the runner, display the StudentAssessmentRunner component
   if (activeSessionId) {
@@ -139,6 +151,9 @@ export default function AssessmentsPage() {
                 })
               : "—";
 
+            // Derive the assessment key from the definition code for "View My Results"
+            const assessmentKey = def.code?.toLowerCase()?.replace(/_/g, "-") || "ipip-neo-120";
+
             return (
               <SectionCard
                 key={item._id || item.id}
@@ -149,29 +164,34 @@ export default function AssessmentsPage() {
                   <StatusBadge status={item.status} />
                 }
                 footer={
-                  <Button
-                    className="w-full font-semibold shadow"
-                    disabled={isCompleted || startSessionMutation.isPending}
-                    variant={isCompleted ? "outline" : isInProgress ? "secondary" : "default"}
-                    onClick={() => handleStartOrResume(item._id || item.id)}
-                  >
-                    {isCompleted ? (
-                      <>
-                        <CheckCircle2 className="mr-2 size-4 text-emerald-600" />
-                        Completed & Submitted
-                      </>
-                    ) : isInProgress ? (
-                      <>
-                        <Play className="mr-2 size-4 text-amber-600" />
-                        Resume Assessment
-                      </>
-                    ) : (
-                      <>
-                        <BookOpen className="mr-2 size-4" />
-                        Start Assessment
-                      </>
-                    )}
-                  </Button>
+                  isCompleted ? (
+                    <Button
+                      className="w-full font-semibold shadow bg-emerald-600 hover:bg-emerald-700 text-white"
+                      onClick={() => setViewResultsKey(assessmentKey)}
+                    >
+                      <Eye className="mr-2 size-4" />
+                      View My Results
+                    </Button>
+                  ) : (
+                    <Button
+                      className="w-full font-semibold shadow"
+                      disabled={startSessionMutation.isPending}
+                      variant={isInProgress ? "secondary" : "default"}
+                      onClick={() => handleStartOrResume(item._id || item.id)}
+                    >
+                      {isInProgress ? (
+                        <>
+                          <Play className="mr-2 size-4 text-amber-600" />
+                          Resume Assessment
+                        </>
+                      ) : (
+                        <>
+                          <BookOpen className="mr-2 size-4" />
+                          Start Assessment
+                        </>
+                      )}
+                    </Button>
+                  )
                 }
               >
                 <div className="space-y-4 pt-1">
@@ -181,13 +201,13 @@ export default function AssessmentsPage() {
 
                   {/* Student View Completion Confirmation Block */}
                   {isCompleted ? (
-                    <div className="p-3.5 rounded-lg bg-muted/40 border border-border/60 text-xs space-y-1">
+                    <div className="p-3.5 rounded-lg bg-emerald-50/50 dark:bg-emerald-950/30 border border-emerald-200/60 dark:border-emerald-800/40 text-xs space-y-1">
                       <div className="flex items-center gap-1.5 font-semibold text-foreground">
                         <CheckCircle2 className="size-4 text-emerald-600 dark:text-emerald-400" />
                         <span>Assessment Completed</span>
                       </div>
                       <p className="text-muted-foreground leading-relaxed">
-                        You've completed your Personality Assessment. Your counselor will go over your results with you and use them to help guide your career conversations.
+                        Your results are ready! Click "View My Results" to see your personality insights.
                       </p>
                     </div>
                   ) : (
@@ -235,3 +255,4 @@ export default function AssessmentsPage() {
     </div>
   );
 }
+

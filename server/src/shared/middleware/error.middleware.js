@@ -32,9 +32,21 @@ const errorHandler = (err, req, res, next) => {
     error = new ApiError(401, "Your token has expired. Please log in again.");
   }
 
-  // Default to 500 server error
   const statusCode = error.statusCode || 500;
   const message = error.message || "Internal Server Error";
+
+  // Developer-facing server logs:
+  // — Always log 5xx errors (unexpected failures) with full stack trace.
+  // — In development, also log 4xx (auth, not found, validation) so bugs are diagnosable without browser devtools.
+  if (statusCode >= 500) {
+    console.error(`[ERROR ${statusCode}] ${req.method} ${req.originalUrl} — ${message}`);
+    console.error(err.stack || err);
+  } else if (process.env.NODE_ENV === "development") {
+    console.warn(`[WARN ${statusCode}] ${req.method} ${req.originalUrl} — ${message}`);
+    if (err.stack) {
+      console.warn(err.stack);
+    }
+  }
 
   res.status(statusCode).json({
     success: false,

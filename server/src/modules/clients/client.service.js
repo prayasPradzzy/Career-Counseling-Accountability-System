@@ -1,42 +1,16 @@
 const crypto = require("crypto");
+const mongoose = require("mongoose");
 const StudentProfile = require("../profiles/studentProfile.model");
 const User = require("../users/user.model");
 const InviteCode = require("../auth/inviteCode.model");
 const ApiError = require("../../shared/utils/ApiError");
+const { isSameId, canCounselorAccessStudent } = require("../../shared/utils/ownership.utils");
 const {
   STUDENT_STATUS,
   deriveStudentLifecycleStatus,
 } = require("../../shared/constants/studentStatus.constants");
 
-/**
- * Calculates Profile Completion Percentage
- * Evaluates core profile sections (demographics, education, goals, skills, consent).
- */
-const calculateProfileCompletion = (profile) => {
-  if (!profile) return 0;
-
-  let totalPoints = 0;
-  let earnedPoints = 0;
-
-  const checks = [
-    { field: profile.phone, weight: 10 },
-    { field: profile.dateOfBirth, weight: 10 },
-    { field: profile.gender && profile.gender !== "prefer-not-to-say", weight: 10 },
-    { field: profile.education && profile.education.length > 0, weight: 25 },
-    { field: profile.careerGoals && profile.careerGoals.length > 0, weight: 20 },
-    { field: profile.skills && profile.skills.length > 0, weight: 15 },
-    { field: profile.consentStatus && profile.consentStatus.isGiven, weight: 10 },
-  ];
-
-  checks.forEach((check) => {
-    totalPoints += check.weight;
-    if (check.field) {
-      earnedPoints += check.weight;
-    }
-  });
-
-  return Math.round((earnedPoints / totalPoints) * 100);
-};
+const { computeStudentCompleteness: calculateProfileCompletion } = require("../../shared/utils/profileCompleteness");
 
 class ClientService {
   /**
@@ -235,17 +209,30 @@ class ClientService {
   /**
    * Get Student Profile by ID or UserID
    * Enforces RBAC: Students can only view their own profile.
+   * Counselor can ONLY view their assigned students.
    */
   async getStudentProfile(identifier, requestingUser) {
-    let profile = await StudentProfile.findOne({
-      $or: [{ _id: identifier }, { userId: identifier }],
-      status: { $ne: "archived" },
-    })
-      .populate("userId", "firstName lastName email role")
+    if (!identifier) {
+      console.error("[getStudentProfile Error] Missing profile identifier parameter.");
+      throw new ApiError(400, "Student profile identifier is required.");
+    }
+
+    const isObjectId = mongoose.Types.ObjectId.isValid(identifier);
+    const query = { status: { $ne: "archived" } };
+
+    if (isObjectId) {
+      query.$or = [{ _id: identifier }, { userId: identifier }];
+    } else {
+      query.invitedEmail = identifier.toLowerCase().trim();
+    }
+
+    let profile = await StudentProfile.findOne(query)
+      .populate("userId", "firstName lastName email role counselorId")
       .populate("assignedCounselorId", "firstName lastName email")
       .populate("invitedBy", "firstName lastName email role");
 
     if (!profile) {
+      console.error(`[getStudentProfile 404] StudentProfile record not found for query identifier: '${identifier}'.`);
       throw new ApiError(404, "Student profile not found");
     }
 
@@ -261,23 +248,23 @@ class ClientService {
     }
 
     // RBAC Check: Student can only view their own profile
-    if (
-      requestingUser.role === "student" &&
-      profile.userId &&
-      profile.userId._id &&
-      profile.userId._id.toString() !== requestingUser._id.toString()
-    ) {
-      throw new ApiError(403, "Access denied. You can only view your own student profile.");
+    if (requestingUser.role === "student") {
+      const targetUserId = profile.userId?._id || profile.userId;
+      if (targetUserId && !isSameId(targetUserId, requestingUser._id)) {
+        console.error(
+          `[getStudentProfile 403] Student user ${requestingUser._id} denied access to profile belonging to user ${targetUserId}.`
+        );
+        throw new ApiError(403, "Access denied. You can only view your own student profile.");
+      }
     }
 
     // RBAC Check: Counselor can ONLY view their own assigned students
     if (requestingUser.role === "counselor") {
-      const counselorIdStr = requestingUser._id.toString();
-      const assignedId = profile.assignedCounselorId ? profile.assignedCounselorId._id?.toString() || profile.assignedCounselorId.toString() : null;
-      const invitedById = profile.invitedBy ? profile.invitedBy._id?.toString() || profile.invitedBy.toString() : null;
-      const userCounselorId = profile.userId && profile.userId.counselorId ? profile.userId.counselorId.toString() : null;
-
-      if (assignedId !== counselorIdStr && invitedById !== counselorIdStr && userCounselorId !== counselorIdStr) {
+      const isAuthorized = canCounselorAccessStudent(requestingUser._id, profile.userId, profile);
+      if (!isAuthorized) {
+        console.error(
+          `[getStudentProfile 403] Counselor ${requestingUser._id} denied access to StudentProfile ${profile._id} (User: ${profile.userId?._id || "none"}).`
+        );
         throw new ApiError(403, "Access denied: You can only access your own assigned students.");
       }
     }

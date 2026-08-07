@@ -23,7 +23,7 @@ export function ClientCard({ client, onDelete, className }) {
       metaItems={[
         { label: "Phone", value: client.phone || "N/A" },
         { label: "Assigned Counselor", value: counselorName },
-        { label: "Completion", value: `${client.completionPercentage || 0}%` },
+        { label: "Intake Progress", value: `${client.completionPercentage || 0}%` },
         { label: "Gender", value: client.gender || "Not specified" },
       ]}
       action={

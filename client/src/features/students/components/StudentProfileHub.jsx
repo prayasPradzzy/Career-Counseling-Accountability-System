@@ -4,7 +4,6 @@ import { useState } from "react";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { OverviewSection } from "./sections/OverviewSection";
 import { AssessmentHistorySection } from "./sections/AssessmentHistorySection";
-import { AssessmentScoresSection } from "./sections/AssessmentScoresSection";
 import { InfoCard } from "@/components/common/InfoCard";
 import { GuardianCard } from "./GuardianCard";
 import { SectionCard } from "@/components/common/SectionCard";
@@ -234,13 +233,12 @@ export function StudentProfileHub({
           </SectionCard>
         </TabsContent>
 
-        {/* 6. Assessments & Scores Tab — Real assignments from backend */}
+        {/* 6. Assessments Tab — Single Consolidated Per-Assessment View */}
         <TabsContent value="assessments" className="mt-4 space-y-6">
           <AssessmentHistorySection
             assignments={assignments}
             onAssignAssessment={isCounselorOrAdmin ? () => setAssignAssessmentOpen(true) : undefined}
           />
-          <AssessmentScoresSection />
         </TabsContent>
 
 

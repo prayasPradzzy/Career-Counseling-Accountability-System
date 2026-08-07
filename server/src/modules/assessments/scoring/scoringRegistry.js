@@ -1,6 +1,6 @@
 const LikertSumStrategy = require("./strategies/likertSumStrategy");
 const IPIPNEO120Strategy = require("./strategies/ipipNeo120Strategy");
-const RIASECStrategy = require("./strategies/riasecStrategy");
+const RIASECHollandStrategy = require("./strategies/riasecHollandStrategy");
 
 /**
  * ScoringRegistry — Strategy Pattern Registry for Assessment Scoring
@@ -14,7 +14,7 @@ class ScoringRegistry {
     // Register built-in default strategies
     this.register(new LikertSumStrategy("likert_sum"));
     this.register(new IPIPNEO120Strategy());
-    this.register(new RIASECStrategy());
+    this.register(new RIASECHollandStrategy());
   }
 
   /**

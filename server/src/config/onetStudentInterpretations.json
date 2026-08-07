@@ -1,0 +1,28 @@
+{
+  "categories": {
+    "R": {
+      "label": "Hands-On & Practical",
+      "text": "You're drawn to hands-on, practical work — building, fixing, and working with tools or machinery. Careers in trades, engineering, or technical fields often suit this interest."
+    },
+    "I": {
+      "label": "Analytical & Scientific",
+      "text": "You enjoy investigating, researching, and solving complex problems. Careers in science, research, or analysis tend to align well here."
+    },
+    "A": {
+      "label": "Creative & Expressive",
+      "text": "You're drawn to creative, original expression — through writing, music, art, or performance. Careers in design, media, or the arts often fit this interest."
+    },
+    "S": {
+      "label": "People-Focused & Helping",
+      "text": "You're motivated by helping, teaching, or supporting others. Careers in education, counseling, or healthcare often align with this interest."
+    },
+    "E": {
+      "label": "Leadership & Persuasion",
+      "text": "You're energized by leading, persuading, and taking initiative in business settings. Careers in management, sales, or entrepreneurship often suit this interest."
+    },
+    "C": {
+      "label": "Organized & Detail-Oriented",
+      "text": "You enjoy structured, detail-focused work — organizing information and keeping things running smoothly. Careers in administration, finance, or operations often fit this interest."
+    }
+  }
+}

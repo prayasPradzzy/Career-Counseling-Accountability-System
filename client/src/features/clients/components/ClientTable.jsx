@@ -27,7 +27,7 @@ export function ClientTable({ clients = [], onDelete, onAssignCounselor }) {
             <TableHead>Client</TableHead>
             <TableHead>Role</TableHead>
             <TableHead>Status</TableHead>
-            <TableHead>Completion</TableHead>
+            <TableHead>Intake Progress</TableHead>
             <TableHead>Assigned Counselor</TableHead>
             <TableHead className="text-right">Actions</TableHead>
           </TableRow>
@@ -46,6 +46,9 @@ export function ClientTable({ clients = [], onDelete, onAssignCounselor }) {
             const counselorName = counselor
               ? `${counselor.firstName} ${counselor.lastName}`
               : "Unassigned";
+
+            const completion = client.completionPercentage || 0;
+            const isFull = completion === 100;
 
             return (
               <TableRow key={client.id || client._id} className="hover:bg-muted/30 transition-colors">
@@ -78,17 +81,25 @@ export function ClientTable({ clients = [], onDelete, onAssignCounselor }) {
                   <StatusBadge status={client.status || "active"} />
                 </TableCell>
 
-                {/* Completion */}
+                {/* Intake Progress */}
                 <TableCell>
-                  <div className="flex items-center gap-2 max-w-[100px]">
+                  <div className="flex items-center gap-2 max-w-[110px]">
                     <div className="h-2 w-full bg-muted rounded-full overflow-hidden">
                       <div
-                        className="h-full bg-primary rounded-full"
-                        style={{ width: `${client.completionPercentage || 0}%` }}
+                        className={`h-full rounded-full transition-all duration-500 ${
+                          isFull ? "bg-emerald-600 dark:bg-emerald-500" : "bg-primary"
+                        }`}
+                        style={{ width: `${completion}%` }}
                       />
                     </div>
-                    <span className="text-xs font-semibold text-foreground">
-                      {client.completionPercentage || 0}%
+                    <span
+                      className={`text-xs ${
+                        isFull
+                          ? "text-emerald-600 dark:text-emerald-400 font-bold"
+                          : "text-foreground font-semibold"
+                      }`}
+                    >
+                      {completion}%
                     </span>
                   </div>
                 </TableCell>

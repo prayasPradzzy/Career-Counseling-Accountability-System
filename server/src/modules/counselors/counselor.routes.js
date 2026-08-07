@@ -13,12 +13,41 @@ router.use(requireAuth);
 // GET /api/v1/counselor/caseload
 router.get("/caseload", restrictTo("counselor", "admin"), profileController.getCounselorCaseload);
 
+const StudentProfile = require("../profiles/studentProfile.model");
+
 // GET /api/v1/counselor/my-counselor (Student-facing: returns ONLY student's assigned counselor)
 router.get(
   "/my-counselor",
   restrictTo("student", "admin"),
   catchAsync(async (req, res) => {
-    if (req.user.role === "student" && !req.user.counselorId) {
+    let targetCounselorId = req.user.role === "student" ? req.user.counselorId : req.query.counselorId;
+
+    // Fallback: If student User record doesn't have counselorId set directly, check StudentProfile then AssessmentAssignment
+    if (req.user.role === "student" && !targetCounselorId) {
+      const studentProfile = await StudentProfile.findOne({ userId: req.user._id });
+      if (studentProfile) {
+        targetCounselorId = studentProfile.assignedCounselorId || studentProfile.invitedBy;
+      }
+
+      if (!targetCounselorId) {
+        const { AssessmentAssignment } = require("../assessments/assessmentAssignment.model");
+        const assignment = await AssessmentAssignment.findOne({ studentId: req.user._id, counselorId: { $ne: null } }).sort({ createdAt: -1 });
+        if (assignment && assignment.counselorId) {
+          targetCounselorId = assignment.counselorId;
+        }
+      }
+
+      if (targetCounselorId) {
+        // Auto-sync User model for consistency across endpoints
+        req.user.counselorId = targetCounselorId;
+        await req.user.save().catch((err) =>
+          console.error("[MyCounselor] Failed to sync counselorId to User model:", err.message)
+        );
+      }
+    }
+
+    if (req.user.role === "student" && !targetCounselorId) {
+      console.log(`[MyCounselor] Student user ${req.user._id} (${req.user.email}) has no assigned counselor.`);
       return res.status(200).json({
         status: "success",
         data: null,
@@ -26,8 +55,8 @@ router.get(
       });
     }
 
-    const targetCounselorId = req.user.role === "student" ? req.user.counselorId : req.query.counselorId;
     if (!targetCounselorId) {
+      console.error("[MyCounselor Error] Counselor ID required for query but not provided.");
       throw new ApiError(400, "Counselor ID required.");
     }
 
@@ -36,6 +65,7 @@ router.get(
     );
 
     if (!counselorUser) {
+      console.error(`[MyCounselor Error] Counselor User ${targetCounselorId} not found in DB for student ${req.user._id}.`);
       throw new ApiError(404, "Assigned counselor account not found.");
     }
 

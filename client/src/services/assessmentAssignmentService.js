@@ -82,6 +82,14 @@ export const assessmentAssignmentService = {
   },
 
   /**
+   * Counselor recomputes score (Safety net action)
+   */
+  async rescoreAssignment(assignmentId) {
+    const response = await api.post(`/assessments/assignments/${assignmentId}/rescore`);
+    return response.data;
+  },
+
+  /**
    * Revoke / Delete Assignment
    */
   async deleteAssignment(assignmentId) {
