@@ -4,7 +4,7 @@ import * as React from "react"
 import { Dialog as DialogPrimitive } from "@base-ui/react/dialog"
 
 import { cn } from "@/lib/utils"
-import { Button } from "@/components/ui/button"
+import { buttonVariants } from "@/components/ui/button"
 import { XIcon } from "lucide-react"
 
 function Dialog({
@@ -26,9 +26,23 @@ function DialogPortal({
 }
 
 function DialogClose({
+  className,
+  variant,
+  size,
+  asChild,
+  render,
+  children,
   ...props
 }) {
-  return <DialogPrimitive.Close data-slot="dialog-close" {...props} />;
+  return (
+    <DialogPrimitive.Close
+      data-slot="dialog-close"
+      className={cn(variant || size ? buttonVariants({ variant, size, className }) : className)}
+      {...props}
+    >
+      {children}
+    </DialogPrimitive.Close>
+  );
 }
 
 function DialogOverlay({
@@ -66,10 +80,9 @@ function DialogContent({
         {showCloseButton && (
           <DialogPrimitive.Close
             data-slot="dialog-close"
-            render={
-              <Button variant="ghost" className="absolute top-2 right-2" size="icon-sm" />
-            }>
-            <XIcon />
+            className="absolute top-2 right-2 inline-flex size-7 items-center justify-center rounded-md text-muted-foreground hover:bg-accent hover:text-foreground opacity-70 transition-opacity hover:opacity-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          >
+            <XIcon className="size-4" />
             <span className="sr-only">Close</span>
           </DialogPrimitive.Close>
         )}

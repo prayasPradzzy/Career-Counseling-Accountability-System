@@ -21,6 +21,7 @@ import {
   CalendarDays,
   Timer,
   Eye,
+  RotateCcw,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -134,6 +135,7 @@ export default function AssessmentsPage() {
           {assignments.map((item) => {
             const def = item.assessmentDefinitionId || {};
             const isCompleted = item.status === "COMPLETED" || item.status === "APPROVED" || item.status === "UNDER_REVIEW";
+            const isRetakeRequested = item.status === "REJECTED" || item.status === "RETAKE_REQUESTED";
             const isInProgress = item.status === "IN_PROGRESS";
 
             let progress = 0;
@@ -184,6 +186,11 @@ export default function AssessmentsPage() {
                           <Play className="mr-2 size-4 text-amber-600" />
                           Resume Assessment
                         </>
+                      ) : isRetakeRequested ? (
+                        <>
+                          <RotateCcw className="mr-2 size-4" />
+                          Start Retake Assessment
+                        </>
                       ) : (
                         <>
                           <BookOpen className="mr-2 size-4" />
@@ -199,8 +206,19 @@ export default function AssessmentsPage() {
                     {def.description || "Take this assessment to build your guidance profile."}
                   </p>
 
-                  {/* Student View Completion Confirmation Block */}
-                  {isCompleted ? (
+                  {/* Student View Retake Requested Banner */}
+                  {isRetakeRequested ? (
+                    <div className="p-3.5 rounded-lg bg-amber-500/10 border border-amber-500/30 text-xs space-y-1.5">
+                      <div className="flex items-center gap-1.5 font-semibold text-amber-800 dark:text-amber-300">
+                        <AlertCircle className="size-4 text-amber-600 dark:text-amber-400 shrink-0" />
+                        <span>Retake Requested</span>
+                      </div>
+                      <p className="text-amber-700/90 dark:text-amber-300/90 leading-relaxed">
+                        Your counselor asked you to retake this assessment:{" "}
+                        <span className="font-semibold">{item.counselorNotes || "Please start a new attempt."}</span>
+                      </p>
+                    </div>
+                  ) : isCompleted ? (
                     <div className="p-3.5 rounded-lg bg-emerald-50/50 dark:bg-emerald-950/30 border border-emerald-200/60 dark:border-emerald-800/40 text-xs space-y-1">
                       <div className="flex items-center gap-1.5 font-semibold text-foreground">
                         <CheckCircle2 className="size-4 text-emerald-600 dark:text-emerald-400" />

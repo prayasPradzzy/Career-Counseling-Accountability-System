@@ -59,6 +59,11 @@ router.patch(
   restrictTo("counselor", "admin"),
   controller.rejectAssignment
 );
+router.post(
+  "/assignments/:assignmentId/retake",
+  restrictTo("counselor", "admin"),
+  controller.rejectAssignment
+);
 
 // Counselor/Admin recomputes assessment score
 router.post(

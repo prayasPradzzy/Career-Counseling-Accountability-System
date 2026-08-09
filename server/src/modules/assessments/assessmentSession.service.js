@@ -53,11 +53,12 @@ class AssessmentSessionService {
       }
     }
 
-    // Check for existing session for THIS assignment
+    // Check for existing active/non-superseded session for THIS assignment
     let session = await AssessmentSession.findOne({
       assignmentId: assignment._id,
       clientId: assignment.studentId,
-    });
+      status: { $ne: SESSION_STATUS.SUPERSEDED },
+    }).sort({ createdAt: -1 });
 
     if (session) {
       // If already completed or submitted, locked!
@@ -392,11 +393,9 @@ class AssessmentSessionService {
       throw new ApiError(400, `Cannot submit session with status '${session.status}'.`);
     }
 
-    // Completion validation: Ensure all required questions are answered
-    const requiredQuestions = await AssessmentQuestion.find({
-      assessmentId: session.assessmentDefinitionId,
-      required: true,
-    });
+    // Fetch Definition to check responseType strategy
+    const definition = await AssessmentDefinition.findById(session.assessmentDefinitionId);
+    const isCheckboxAssessment = definition?.responseType === "checkbox";
 
     const responseDoc = await AssessmentResponse.findOne({ sessionId: session._id });
     const answeredQuestionIds = new Set(
@@ -407,13 +406,21 @@ class AssessmentSessionService {
         : []
     );
 
-    const missingRequired = requiredQuestions.filter((q) => !answeredQuestionIds.has(q._id.toString()));
+    // Completion validation: Ensure all required questions are answered for Likert assessments
+    if (!isCheckboxAssessment) {
+      const requiredQuestions = await AssessmentQuestion.find({
+        assessmentId: session.assessmentDefinitionId,
+        required: true,
+      });
 
-    if (missingRequired.length > 0) {
-      throw new ApiError(
-        400,
-        `Cannot submit. ${missingRequired.length} required question(s) remain unanswered.`
-      );
+      const missingRequired = requiredQuestions.filter((q) => !answeredQuestionIds.has(q._id.toString()));
+
+      if (missingRequired.length > 0) {
+        throw new ApiError(
+          400,
+          `Cannot submit. ${missingRequired.length} required question(s) remain unanswered.`
+        );
+      }
     }
 
     // Transition & Lock Session
@@ -428,7 +435,7 @@ class AssessmentSessionService {
       assessmentId: session.assessmentDefinitionId,
     });
     session.progress = {
-      answeredCount: answeredQuestionIds.size,
+      answeredCount: isCheckboxAssessment ? totalQuestions : answeredQuestionIds.size,
       totalQuestions,
       percentage: 100,
     };

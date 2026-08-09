@@ -90,10 +90,8 @@ export function AssignCounselorDialog({
           </div>
 
           <DialogFooter className="pt-2">
-            <DialogClose asChild>
-              <Button type="button" variant="outline" disabled={isAssigning}>
-                Cancel
-              </Button>
+            <DialogClose type="button" variant="outline" disabled={isAssigning}>
+              Cancel
             </DialogClose>
             <Button type="submit" disabled={!isValid || isAssigning}>
               {isAssigning ? (

@@ -24,6 +24,9 @@ router.patch("/:sessionId/autosave", controller.autosaveProgress);
 // Finalize, submit, and lock session
 router.post("/:sessionId/submit", controller.submitSession);
 
+// Counselor requests retake for session
+router.post("/:sessionId/retake", controller.requestRetakeBySessionId);
+
 // Fetch non-clinical student assessment analysis results by key
 router.get("/my-results/:key", controller.getStudentResults);
 

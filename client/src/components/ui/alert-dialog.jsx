@@ -36,10 +36,17 @@ export function AlertDialogAction({ className, children, onClick, disabled, ...p
   );
 }
 
-export function AlertDialogCancel({ className, children, onClick, disabled, ...props }) {
+export function AlertDialogCancel({ className, variant = "outline", size = "sm", children, onClick, disabled, ...props }) {
   return (
-    <DialogClose render={<Button variant="outline" className={className} onClick={onClick} disabled={disabled} {...props} />}>
-      {children}
+    <DialogClose
+      className={className}
+      variant={variant}
+      size={size}
+      onClick={onClick}
+      disabled={disabled}
+      {...props}
+    >
+      {children || "Cancel"}
     </DialogClose>
   );
 }

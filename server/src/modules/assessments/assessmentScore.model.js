@@ -228,6 +228,13 @@ const assessmentScoreSchema = new mongoose.Schema(
       default: null,
     },
 
+    // True only for the score belonging to the most recent, non-superseded session
+    isCurrent: {
+      type: Boolean,
+      default: true,
+      index: true,
+    },
+
     // Score version (enables re-scoring without losing history)
     version: {
       type: Number,

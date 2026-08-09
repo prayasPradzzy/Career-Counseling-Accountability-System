@@ -133,10 +133,8 @@ export function TransferOwnershipDialog({
           </div>
 
           <DialogFooter className="pt-2">
-            <DialogClose asChild>
-              <Button type="button" variant="outline" disabled={isTransferring}>
-                Cancel
-              </Button>
+            <DialogClose type="button" variant="outline" disabled={isTransferring}>
+              Cancel
             </DialogClose>
             <Button type="submit" disabled={!isValid || isTransferring || isLoadingCounselors}>
               {isTransferring ? (

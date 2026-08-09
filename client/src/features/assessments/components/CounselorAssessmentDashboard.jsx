@@ -143,7 +143,7 @@ export default function CounselorAssessmentDashboard() {
   return (
     <div className="space-y-6">
       <PageHeader
-        title="Assessment Review"
+        title="Assessment Results"
         subtitle="View results and manage student assessment submissions."
         breadcrumbs={false}
       />
@@ -247,10 +247,8 @@ export default function CounselorAssessmentDashboard() {
           </div>
 
           <DialogFooter>
-            <DialogClose asChild>
-              <Button variant="outline" size="sm" onClick={handleCloseRetake}>
-                Cancel
-              </Button>
+            <DialogClose variant="outline" size="sm" onClick={handleCloseRetake}>
+              Cancel
             </DialogClose>
             <Button
               size="sm"

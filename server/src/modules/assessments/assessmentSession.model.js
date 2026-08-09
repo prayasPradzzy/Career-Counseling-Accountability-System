@@ -22,6 +22,7 @@ const SESSION_STATUS = Object.freeze({
   SUBMITTED: "submitted",
   REVIEWED: "reviewed",
   APPROVED: "approved",
+  SUPERSEDED: "superseded",
   EXPIRED: "expired",
 });
 
@@ -109,6 +110,20 @@ const assessmentSessionSchema = new mongoose.Schema(
     flagReason: {
       type: String,
       default: null,
+    },
+
+    // Retake linkage fields
+    retakeOf: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "AssessmentSession",
+      default: null,
+      index: true,
+    },
+    supersededBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "AssessmentSession",
+      default: null,
+      index: true,
     },
   },
   defaultSchemaOptions

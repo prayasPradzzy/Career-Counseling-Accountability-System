@@ -77,6 +77,7 @@ const adminRoutes = require("./modules/admin/admin.routes");
 const assessmentAssignmentRoutes = require("./modules/assessments/assessmentAssignment.routes");
 const assessmentSessionRoutes = require("./modules/assessments/assessmentSession.routes");
 const assessmentDefinitionRoutes = require("./modules/assessments/assessmentDefinition.routes");
+const notificationRoutes = require("./modules/notifications/notification.routes");
 const errorHandler = require("./shared/middleware/error.middleware");
 
 // ============================================================
@@ -104,6 +105,8 @@ app.use("/api/v1/counselors", counselorRoutes);
 app.use("/api/counselors", counselorRoutes);
 app.use("/api/v1/admin", adminRoutes);
 app.use("/api/admin", adminRoutes);
+app.use("/api/v1/notifications", notificationRoutes);
+app.use("/api/notifications", notificationRoutes);
 app.use("/api/v1/assessment-definitions", assessmentDefinitionRoutes);
 app.use("/api/v1/assessments/sessions", assessmentSessionRoutes);
 app.use("/api/assessments/sessions", assessmentSessionRoutes);

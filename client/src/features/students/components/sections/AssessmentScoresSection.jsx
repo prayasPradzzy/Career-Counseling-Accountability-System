@@ -18,7 +18,7 @@ export function AssessmentScoresSection({ assessmentScores = [] }) {
         <EmptyIllustration
           iconName="Award"
           title="No Assessment Scores Available"
-          description="This student has not completed any scored career assessments yet. Evaluated scores will appear here once assigned assessments are completed and reviewed."
+          description="This student has not completed any scored career assessments yet. Evaluated scores will appear here once assigned assessments are completed."
           className="p-6 sm:p-8"
         />
       </SectionCard>

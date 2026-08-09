@@ -9,6 +9,7 @@ import {
   useSubmitSession,
 } from "../hooks/useAssessmentSession";
 import StudentResultsViewer from "./StudentResultsViewer";
+import ConfirmSubmissionModal from "./ConfirmSubmissionModal";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
@@ -76,15 +77,18 @@ export default function StudentAssessmentRunner({ sessionId, onBack }) {
   // Populate local answers from backend response data once loaded
   useEffect(() => {
     if (questions.length > 0) {
+      const isCheckbox = definition?.responseType === "checkbox";
       const initialAnswers = {};
       questions.forEach((q) => {
         if (q.savedResponse !== null && q.savedResponse !== undefined) {
           initialAnswers[q.id] = q.savedResponse;
+        } else if (isCheckbox) {
+          initialAnswers[q.id] = 0;
         }
       });
       setAnswers(initialAnswers);
     }
-  }, [questions]);
+  }, [questions, definition]);
 
   // Sync session time spent and initial mode
   useEffect(() => {
@@ -174,11 +178,17 @@ export default function StudentAssessmentRunner({ sessionId, onBack }) {
         q.questionNumber <= (currentSection.questionEnd || 120))
   );
 
-  // Answered Count calculation
+  // Answered Count & Selected Count calculation
+  const isCheckbox = definition?.responseType === "checkbox";
   const totalQuestionsCount = questions.length || 120;
-  const answeredCount = Object.keys(answers).filter(
-    (k) => answers[k] !== null && answers[k] !== undefined && answers[k] !== ""
+  const selectedCount = Object.values(answers).filter(
+    (val) => val === 1 || val === true
   ).length;
+  const answeredCount = isCheckbox
+    ? totalQuestionsCount
+    : Object.keys(answers).filter(
+        (k) => answers[k] !== null && answers[k] !== undefined && answers[k] !== ""
+      ).length;
   const progressPercentage = Math.round((answeredCount / Math.max(1, totalQuestionsCount)) * 100);
 
   // Keyboard navigation shortcuts (1-5 for Likert values)
@@ -336,7 +346,9 @@ export default function StudentAssessmentRunner({ sessionId, onBack }) {
                 </Badge>
               </h3>
               <p className="text-xs text-muted-foreground">
-                {answeredCount} of {totalQuestionsCount} questions answered ({progressPercentage}%)
+                {isCheckbox
+                  ? `Activities selected: ${selectedCount} of ${totalQuestionsCount}`
+                  : `${answeredCount} of ${totalQuestionsCount} questions answered (${progressPercentage}%)`}
               </p>
             </div>
 
@@ -558,57 +570,19 @@ export default function StudentAssessmentRunner({ sessionId, onBack }) {
         </div>
 
         {/* Submit Confirmation Modal */}
-        {isSubmittingModalOpen && (
-          <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
-            <Card className="max-w-md w-full border-border shadow-2xl">
-              <CardHeader>
-                <CardTitle className="text-lg font-bold flex items-center gap-2">
-                  <ShieldCheck className="size-5 text-emerald-600" /> Confirm Submission
-                </CardTitle>
-                <CardDescription className="text-sm">
-                  Are you sure you want to submit your assessment? Once submitted, your answers will be locked and sent for review.
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-3">
-                <div className="p-3 rounded bg-muted/50 border text-xs space-y-1">
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">Answered:</span>
-                    <span className="font-semibold">{answeredCount} of {totalQuestionsCount}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">Time Spent:</span>
-                    <span className="font-semibold">{formatTime(timeSpent)}</span>
-                  </div>
-                </div>
-
-                {answeredCount < totalQuestionsCount && (
-                  <div className="p-3 rounded bg-amber-500/10 border border-amber-500/30 text-amber-800 dark:text-amber-300 text-xs flex items-center gap-2">
-                    <AlertCircle className="size-4 shrink-0" />
-                    <span>You have unanswered questions. Missing answers will be submitted as incomplete.</span>
-                  </div>
-                )}
-              </CardContent>
-              <CardFooter className="flex justify-end gap-2 border-t pt-4">
-                <Button variant="outline" onClick={() => setIsSubmittingModalOpen(false)}>
-                  Continue Answering
-                </Button>
-                <Button
-                  className="bg-emerald-600 hover:bg-emerald-700 text-white font-semibold"
-                  disabled={submitMutation.isPending}
-                  onClick={handleSubmitAssessment}
-                >
-                  {submitMutation.isPending ? (
-                    <>
-                      <Loader2 className="mr-2 size-4 animate-spin" /> Submitting...
-                    </>
-                  ) : (
-                    "Confirm & Submit"
-                  )}
-                </Button>
-              </CardFooter>
-            </Card>
-          </div>
-        )}
+        <ConfirmSubmissionModal
+          open={isSubmittingModalOpen}
+          onClose={() => setIsSubmittingModalOpen(false)}
+          onSubmit={handleSubmitAssessment}
+          isSubmitting={submitMutation.isPending}
+          responseType={definition?.responseType || "likert"}
+          stats={{
+            answeredCount,
+            totalQuestions: totalQuestionsCount,
+            selectedCount,
+            timeSpentSeconds: timeSpent,
+          }}
+        />
       </div>
     );
   }

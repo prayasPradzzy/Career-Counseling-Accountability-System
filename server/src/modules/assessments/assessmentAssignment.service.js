@@ -380,13 +380,16 @@ class AssessmentAssignmentService {
     const AssessmentSession = require("./assessmentSession.model");
     const AssessmentScore = require("./assessmentScore.model");
 
-    const sessions = await AssessmentSession.find({ assignmentId: { $in: assignmentIds } });
+    const sessions = await AssessmentSession.find({ assignmentId: { $in: assignmentIds } }).sort({ createdAt: -1 });
     const sessionIds = sessions.map((s) => s._id);
-    const scores = await AssessmentScore.find({ sessionId: { $in: sessionIds } });
+    const scores = await AssessmentScore.find({ sessionId: { $in: sessionIds }, isCurrent: true });
 
     const sessionMap = new Map();
     for (const s of sessions) {
-      sessionMap.set(s.assignmentId.toString(), s);
+      const existing = sessionMap.get(s.assignmentId.toString());
+      if (!existing || existing.status === "superseded") {
+        sessionMap.set(s.assignmentId.toString(), s);
+      }
     }
 
     const scoreSet = new Set(scores.map((sc) => sc.sessionId.toString()));
@@ -416,26 +419,118 @@ class AssessmentAssignmentService {
 
   /**
    * 9. Counselor requests retake / rejects assignment
+   * Preserves historical session and score documents, setting them to superseded / isCurrent=false.
    */
   async rejectAssignment(assignmentId, counselorNotes, requestingUser) {
     if (requestingUser.role !== "counselor" && requestingUser.role !== "admin") {
       throw new ApiError(403, "Only counselors can reject or request retakes.");
     }
 
-    const assignment = await AssessmentAssignment.findById(assignmentId);
+    const reason = counselorNotes ? String(counselorNotes).trim() : "";
+    if (!reason) {
+      throw new ApiError(400, "Please provide a reason explaining why a retake is required.");
+    }
+
+    const assignment = await AssessmentAssignment.findById(assignmentId)
+      .populate("studentId", "firstName lastName email counselorId")
+      .populate("counselorId", "firstName lastName email")
+      .populate("assessmentDefinitionId", "title code category");
+
     if (!assignment) {
       throw new ApiError(404, "Assessment assignment not found.");
     }
 
-    assignment.status = ASSIGNMENT_STATUS.REJECTED;
-    if (counselorNotes) {
-      assignment.counselorNotes = counselorNotes;
+    // RBAC & Ownership check for counselors
+    if (requestingUser.role === "counselor") {
+      const targetStudentId = assignment.studentId ? assignment.studentId._id || assignment.studentId : null;
+      const assignmentCounselorAuthorized = assignment.counselorId && isSameId(assignment.counselorId, requestingUser._id);
+      let isAuthorized = assignmentCounselorAuthorized;
+
+      if (!isAuthorized && targetStudentId) {
+        const [studentUser, studentProfile] = await Promise.all([
+          User.findById(targetStudentId).select("counselorId role"),
+          StudentProfile.findOne({ userId: targetStudentId }).select("assignedCounselorId invitedBy"),
+        ]);
+        isAuthorized = canCounselorAccessStudent(requestingUser._id, studentUser, studentProfile);
+      }
+
+      if (!isAuthorized) {
+        throw new ApiError(403, "Access denied: You can only request retakes for your assigned students.");
+      }
     }
+
+    const AssessmentSession = require("./assessmentSession.model");
+    const { SESSION_STATUS } = require("./assessmentSession.model");
+    const AssessmentScore = require("./assessmentScore.model");
+    const RetakeRequest = require("./retakeRequest.model");
+    const Notification = require("../notifications/notification.model");
+
+    // 1. Locate original active/submitted/completed session
+    const originalSession = await AssessmentSession.findOne({
+      assignmentId: assignment._id,
+      status: { $ne: SESSION_STATUS.SUPERSEDED },
+    }).sort({ createdAt: -1 });
+
+    // 2. Mark original session as SUPERSEDED
+    if (originalSession) {
+      originalSession.status = SESSION_STATUS.SUPERSEDED;
+      await originalSession.save();
+    }
+
+    // 3. Mark original scores as isCurrent = false
+    await AssessmentScore.updateMany(
+      { assignmentId: assignment._id },
+      { $set: { isCurrent: false } }
+    );
+    if (originalSession) {
+      await AssessmentScore.updateMany(
+        { sessionId: originalSession._id },
+        { $set: { isCurrent: false } }
+      );
+    }
+
+    // 4. Create fresh new AssessmentSession
+    const newSession = await AssessmentSession.create({
+      clientId: assignment.studentId._id || assignment.studentId,
+      assessmentDefinitionId: assignment.assessmentDefinitionId._id || assignment.assessmentDefinitionId,
+      assignmentId: assignment._id,
+      status: SESSION_STATUS.NOT_STARTED,
+      retakeOf: originalSession ? originalSession._id : null,
+    });
+
+    // 5. Link supersededBy on original session
+    if (originalSession) {
+      originalSession.supersededBy = newSession._id;
+      await originalSession.save();
+    }
+
+    // 6. Record RetakeRequest audit document
+    await RetakeRequest.create({
+      originalSessionId: originalSession ? originalSession._id : newSession._id,
+      newSessionId: newSession._id,
+      assignmentId: assignment._id,
+      requestedBy: requestingUser._id,
+      reason: reason,
+    });
+
+    // 7. Update AssessmentAssignment status & counselor notes
+    assignment.status = ASSIGNMENT_STATUS.REJECTED;
+    assignment.counselorNotes = reason;
     await assignment.save();
 
-    // Reset session for retake
-    const AssessmentSession = require("./assessmentSession.model");
-    await AssessmentSession.deleteMany({ assignmentId: assignment._id });
+    // 8. Send notification alert to student
+    try {
+      const defTitle = assignment.assessmentDefinitionId?.title || "Assessment";
+      await Notification.create({
+        userId: assignment.studentId._id || assignment.studentId,
+        title: "Retake Requested",
+        message: `Your counselor requested a retake for ${defTitle}: "${reason}"`,
+        type: "assessment_retake",
+        link: `/assessments/${assignment._id}`,
+      });
+    } catch (notifErr) {
+      console.error("[Retake Notification Error]", notifErr.message);
+    }
 
     return await AssessmentAssignment.findById(assignment._id)
       .populate("studentId", "firstName lastName email")
@@ -497,7 +592,10 @@ class AssessmentAssignmentService {
     const AssessmentResponse = require("./assessmentResponse.model");
     const AssessmentQuestion = require("./assessmentQuestion.model");
 
-    const session = await AssessmentSession.findOne({ assignmentId: assignment._id });
+    const RetakeRequest = require("./retakeRequest.model");
+    const session =
+      (await AssessmentSession.findOne({ assignmentId: assignment._id, status: { $ne: "superseded" } }).sort({ createdAt: -1 })) ||
+      (await AssessmentSession.findOne({ assignmentId: assignment._id }).sort({ createdAt: -1 }));
 
     let score = null;
     let responseDoc = null;
@@ -563,11 +661,31 @@ class AssessmentAssignmentService {
       }
     }
 
+    // Build historical superseded attempts breakdown
+    const supersededSessions = await AssessmentSession.find({
+      assignmentId: assignment._id,
+      status: "superseded",
+    }).sort({ createdAt: -1 });
+
+    const previousAttempts = [];
+    for (const supSession of supersededSessions) {
+      const supScore = await AssessmentScore.findOne({ sessionId: supSession._id }).sort({ version: -1, createdAt: -1 });
+      const retakeReq = await RetakeRequest.findOne({ originalSessionId: supSession._id });
+      previousAttempts.push({
+        sessionId: supSession._id,
+        session: supSession,
+        score: supScore,
+        reason: retakeReq ? retakeReq.reason : assignment.counselorNotes || "Retake requested",
+        requestedAt: retakeReq ? retakeReq.requestedAt : supSession.updatedAt,
+      });
+    }
+
     return {
       assignment,
       session,
       score,
       rawResponses: rawResponsesMapped,
+      previousAttempts,
     };
   }
 

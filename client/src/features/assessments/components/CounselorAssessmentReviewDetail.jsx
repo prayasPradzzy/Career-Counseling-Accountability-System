@@ -40,6 +40,7 @@ import {
   AlertTriangle,
   CheckCircle2,
   RefreshCw,
+  History,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -81,6 +82,7 @@ export default function CounselorAssessmentReviewDetail({ assignmentId }) {
   const [retakeDialog, setRetakeDialog] = useState(false);
   const [retakeNotes, setRetakeNotes] = useState("");
   const [responseFilter, setResponseFilter] = useState("all");
+  const [showPrevAttempts, setShowPrevAttempts] = useState(false);
 
   const rejectMutation = useRejectAssignment();
   const rescoreMutation = useRescoreAssignment();
@@ -108,7 +110,7 @@ export default function CounselorAssessmentReviewDetail({ assignmentId }) {
       <div className="flex flex-col items-center justify-center min-h-[400px] space-y-3">
         <Loader2 className="size-10 animate-spin text-primary" />
         <p className="text-sm text-muted-foreground font-medium">
-          Loading assessment review data...
+          Loading assessment result data...
         </p>
       </div>
     );
@@ -118,7 +120,7 @@ export default function CounselorAssessmentReviewDetail({ assignmentId }) {
     return (
       <div className="flex flex-col items-center justify-center min-h-[400px] space-y-3">
         <AlertCircle className="size-10 text-destructive" />
-        <p className="text-sm font-medium">Failed to load review data.</p>
+        <p className="text-sm font-medium">Failed to load assessment result data.</p>
         <p className="text-xs text-muted-foreground">
           {error?.response?.data?.message || "Please try again or go back."}
         </p>
@@ -138,6 +140,7 @@ export default function CounselorAssessmentReviewDetail({ assignmentId }) {
   const session = reviewData.session || {};
   const score = reviewData.score || null;
   const rawResponses = reviewData.rawResponses || [];
+  const previousAttempts = reviewData.previousAttempts || [];
 
   const def = assignment.assessmentDefinitionId || {};
   const student = assignment.studentId || {};
@@ -255,7 +258,7 @@ export default function CounselorAssessmentReviewDetail({ assignmentId }) {
             size="icon-sm"
             onClick={() => router.push("/assessments")}
             className="shrink-0"
-            aria-label="Back to assessment review list"
+            aria-label="Back to assessment list"
           >
             <ArrowLeft className="size-4" />
           </Button>
@@ -373,6 +376,59 @@ export default function CounselorAssessmentReviewDetail({ assignmentId }) {
           <p className="text-xs text-foreground leading-relaxed whitespace-pre-wrap">
             {assignment.counselorNotes}
           </p>
+        </div>
+      )}
+      {/* ── Previous Attempts Breakdown ─────────────────────────────────────── */}
+      {previousAttempts.length > 0 && (
+        <div className="p-4 rounded-xl border border-amber-500/30 bg-amber-500/5 space-y-3">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <History className="size-4 text-amber-600 dark:text-amber-400" />
+              <h3 className="font-bold text-sm text-foreground">
+                Previous Assessment Attempt(s) ({previousAttempts.length})
+              </h3>
+            </div>
+            <Button
+              variant="outline"
+              size="sm"
+              className="text-xs font-medium"
+              onClick={() => setShowPrevAttempts((prev) => !prev)}
+            >
+              {showPrevAttempts ? "Hide Previous Attempts" : "View Previous Attempt(s)"}
+            </Button>
+          </div>
+
+          {showPrevAttempts && (
+            <div className="space-y-3 pt-2 border-t border-amber-500/20">
+              {previousAttempts.map((prev, idx) => (
+                <div key={prev.sessionId || idx} className="p-3.5 rounded-lg border border-border bg-card space-y-2 text-xs">
+                  <div className="flex items-center justify-between">
+                    <span className="font-semibold text-foreground">
+                      Attempt #{previousAttempts.length - idx} (Superseded)
+                    </span>
+                    <span className="text-muted-foreground font-mono">
+                      {formatDate(prev.session?.completedAt || prev.requestedAt)}
+                    </span>
+                  </div>
+                  {prev.reason && (
+                    <p className="text-muted-foreground italic">
+                      Retake Reason: &ldquo;{prev.reason}&rdquo;
+                    </p>
+                  )}
+                  {prev.score && prev.score.domainScores && (
+                    <div className="grid grid-cols-2 sm:grid-cols-5 gap-2 pt-1">
+                      {prev.score.domainScores.map((ds) => (
+                        <div key={ds.domain} className="p-2 rounded bg-muted/50 border border-border/60 text-center">
+                          <span className="font-bold block text-xs">{ds.domain}</span>
+                          <span className="text-[11px] text-muted-foreground">{ds.score} ({ds.band})</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       )}
 
@@ -619,10 +675,8 @@ export default function CounselorAssessmentReviewDetail({ assignmentId }) {
           </div>
 
           <DialogFooter>
-            <DialogClose asChild>
-              <Button variant="outline" size="sm" onClick={handleCloseRetake}>
-                Cancel
-              </Button>
+            <DialogClose variant="outline" size="sm" onClick={handleCloseRetake}>
+              Cancel
             </DialogClose>
             <Button
               size="sm"
