@@ -3,12 +3,10 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useAutosaveProgress, useSubmitSession } from "../hooks/useAssessmentSession";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
+import AssessmentProgressHeader from "./AssessmentProgressHeader";
 import {
   CheckCircle2,
-  Clock,
-  AlertCircle,
   Loader2,
   ArrowRight,
   Lock,
@@ -147,17 +145,68 @@ export default function ForcedRankSortRunner({
     }
   };
 
-  const formatTime = (seconds) => {
-    const mins = Math.floor(seconds / 60);
-    const secs = seconds % 60;
-    return `${mins}:${secs < 10 ? "0" : ""}${secs}`;
-  };
-
   return (
     <div className="max-w-4xl mx-auto space-y-6 pb-16">
 
-      {/* ── Sticky header: column counters + controls ───────────────────────── */}
-      <div className="sticky top-16 z-20 bg-background/95 backdrop-blur border border-border/80 rounded-xl shadow-md overflow-hidden">
+      {/* ── Sticky header (shared component) ───────────────────────────────── */}
+      <AssessmentProgressHeader
+        title="O*NET Work Importance Locator"
+        progressText={
+          <>
+            <span className="font-bold text-foreground tabular-nums">{totalRated}</span>
+            {" "}of {TOTAL_ITEMS} cards placed
+          </>
+        }
+        progressValue={Math.round((totalRated / TOTAL_ITEMS) * 100)}
+        saveStatus={saveStatus}
+        timeSpent={timeSpent}
+        extrasLeft={
+          /* 20-dot progress indicator */
+          <div className="hidden sm:flex gap-0.5">
+            {questions.map((q) => {
+              const rating = ratings[q.id];
+              const color = rating ? COLUMN_COLORS[rating].bg : "bg-muted";
+              return (
+                <span
+                  key={q.id}
+                  className={`inline-block size-2 rounded-full transition-colors ${color}`}
+                />
+              );
+            })}
+          </div>
+        }
+        actions={
+          /* Submit */
+          <Button
+            id="wil-submit-btn"
+            disabled={!canSubmit || isSubmitting}
+            onClick={handleSubmit}
+            className={`text-xs font-bold px-4 h-8 transition-all ${
+              canSubmit
+                ? "bg-emerald-600 hover:bg-emerald-700 text-white shadow-md"
+                : "opacity-50"
+            }`}
+          >
+            {isSubmitting ? (
+              <><Loader2 className="size-3.5 mr-1.5 animate-spin" /> Submitting...</>
+            ) : canSubmit ? (
+              <>Submit <ArrowRight className="size-3.5 ml-1" /></>
+            ) : (
+              <><Lock className="size-3.5 mr-1" /> {TOTAL_ITEMS - totalRated} remaining</>
+            )}
+          </Button>
+        }
+        footer={
+          /* Gate message */
+          !canSubmit && totalRated > 0 && (
+            <div className="px-4 pb-2.5 text-[11px] text-muted-foreground">
+              {totalRated < TOTAL_ITEMS
+                ? `Place ${TOTAL_ITEMS - totalRated} more card${TOTAL_ITEMS - totalRated !== 1 ? "s" : ""} to unlock submission.`
+                : "Each level must have exactly 4 cards. Adjust any over- or under-filled levels."}
+            </div>
+          )
+        }
+      >
         {/* Column counter row */}
         <div className="grid grid-cols-5 border-b border-border/60">
           {[5, 4, 3, 2, 1].map((col) => {
@@ -184,77 +233,7 @@ export default function ForcedRankSortRunner({
             );
           })}
         </div>
-
-        {/* Progress row */}
-        <div className="px-4 py-2.5 flex items-center justify-between gap-4">
-          <div className="flex items-center gap-3 text-xs">
-            <span className="font-medium text-muted-foreground">
-              <span className="text-foreground font-bold tabular-nums">{totalRated}</span>
-              {" "}of {TOTAL_ITEMS} cards placed
-            </span>
-            {/* 20-dot progress indicator */}
-            <div className="hidden sm:flex gap-0.5">
-              {questions.map((q) => {
-                const rating = ratings[q.id];
-                const color = rating ? COLUMN_COLORS[rating].bg : "bg-muted";
-                return (
-                  <span key={q.id} className={`inline-block size-2 rounded-full transition-colors ${color}`} />
-                );
-              })}
-            </div>
-          </div>
-
-          <div className="flex items-center gap-3">
-            {/* Autosave indicator */}
-            <div className="flex items-center gap-1.5 text-xs font-medium">
-              {saveStatus === "saving" && (
-                <><Loader2 className="size-3.5 animate-spin text-amber-500" /><span className="text-amber-600">Saving...</span></>
-              )}
-              {saveStatus === "saved" && (
-                <><CheckCircle2 className="size-3.5 text-emerald-600" /><span className="text-emerald-700">Saved</span></>
-              )}
-              {saveStatus === "unsaved" && (
-                <><AlertCircle className="size-3.5 text-destructive" /><span className="text-destructive">Unsaved</span></>
-              )}
-            </div>
-
-            {/* Timer */}
-            <div className="flex items-center gap-1 px-2.5 py-1 rounded bg-muted font-mono text-xs font-semibold">
-              <Clock className="size-3.5 text-primary" />
-              <span>{formatTime(timeSpent)}</span>
-            </div>
-
-            {/* Submit */}
-            <Button
-              id="wil-submit-btn"
-              disabled={!canSubmit || isSubmitting}
-              onClick={handleSubmit}
-              className={`text-xs font-bold px-4 h-8 transition-all ${
-                canSubmit
-                  ? "bg-emerald-600 hover:bg-emerald-700 text-white shadow-md"
-                  : "opacity-50"
-              }`}
-            >
-              {isSubmitting ? (
-                <><Loader2 className="size-3.5 mr-1.5 animate-spin" /> Submitting...</>
-              ) : canSubmit ? (
-                <>Submit <ArrowRight className="size-3.5 ml-1" /></>
-              ) : (
-                <><Lock className="size-3.5 mr-1" /> {TOTAL_ITEMS - totalRated} remaining</>
-              )}
-            </Button>
-          </div>
-        </div>
-
-        {/* Gate message */}
-        {!canSubmit && totalRated > 0 && (
-          <div className="px-4 pb-2.5 text-[11px] text-muted-foreground">
-            {totalRated < TOTAL_ITEMS
-              ? `Place ${TOTAL_ITEMS - totalRated} more card${TOTAL_ITEMS - totalRated !== 1 ? "s" : ""} to unlock submission.`
-              : "Each level must have exactly 4 cards. Adjust any over- or under-filled levels."}
-          </div>
-        )}
-      </div>
+      </AssessmentProgressHeader>
 
       {/* ── Card list ─────────────────────────────────────────────────────────── */}
       <div className="space-y-3">
@@ -314,8 +293,7 @@ export default function ForcedRankSortRunner({
                               : `bg-background hover:${btnColors.light} border-border/60 hover:border-current text-foreground cursor-pointer`
                           }`}
                         >
-                          <span className="text-xs font-bold leading-none">{col}</span>
-                          <span className="text-[9px] leading-tight mt-0.5 opacity-80 max-w-[54px] text-center hidden sm:block">
+                          <span className="text-[10px] font-bold leading-tight text-center">
                             {SCALE_LABELS[col]}
                           </span>
                           {isFull && !isSelected && (
@@ -350,7 +328,7 @@ export default function ForcedRankSortRunner({
         </p>
         <p className="text-[10px] text-muted-foreground/60">
           Source: U.S. Department of Labor, Employment and Training Administration. O*NET Work Importance Locator, Version 3.0.
-          Archived materials provided "AS IS" for research purposes only.
+          Archived materials provided &quot;AS IS&quot; for research purposes only.
         </p>
       </div>
     </div>

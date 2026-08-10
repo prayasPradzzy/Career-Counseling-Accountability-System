@@ -11,9 +11,10 @@ import {
 import StudentResultsViewer from "./StudentResultsViewer";
 import ConfirmSubmissionModal from "./ConfirmSubmissionModal";
 import ForcedRankSortRunner from "./ForcedRankSortRunner";
+import MultiSelectChecklistRunner from "./MultiSelectChecklistRunner";
+import AssessmentProgressHeader from "./AssessmentProgressHeader";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Progress } from "@/components/ui/progress";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card";
 import {
   CheckCircle2,
@@ -23,7 +24,6 @@ import {
   ArrowLeft,
   Save,
   Lock,
-  AlertCircle,
   BookOpen,
   Loader2,
   ShieldCheck,
@@ -53,18 +53,22 @@ export default function StudentAssessmentRunner({ sessionId, onBack }) {
   const headerRef = useRef(null);
   const firstQuestionRef = useRef(null);
 
-  // Scroll to the first question of the current section, offset by sticky header height
+  // Scroll to the first question of the current section, landing it just below
+  // the sticky header. The page scrolls inside <main>, so we compute the offset
+  // from the measured header height rather than relying on scroll-margin (which
+  // Chrome ignores for nested scroll containers). Each question card also keeps
+  // a scroll-margin-top as a secondary cue for native scrolls.
   const scrollToFirstQuestion = useCallback(() => {
     // Use requestAnimationFrame to wait for DOM to paint the new section
     requestAnimationFrame(() => {
       requestAnimationFrame(() => {
         const el = firstQuestionRef.current;
         if (!el) return;
-        const headerHeight = headerRef.current?.offsetHeight ?? 120;
-        // 64px topbar offset + sticky header height + 16px buffer
-        const totalOffset = 64 + headerHeight + 16;
-        const top = el.getBoundingClientRect().top + window.scrollY - totalOffset;
-        window.scrollTo({ top: Math.max(0, top), behavior: "smooth" });
+        const main = el.closest("main");
+        if (!main) return;
+        const headerHeight = headerRef.current?.offsetHeight ?? 200;
+        const top = el.getBoundingClientRect().top - main.getBoundingClientRect().top - headerHeight - 16;
+        main.scrollTo({ top: main.scrollTop + top, behavior: "smooth" });
       });
     });
   }, []);
@@ -220,13 +224,6 @@ export default function StudentAssessmentRunner({ sessionId, onBack }) {
     }
   };
 
-  // Format time display (MM:SS)
-  const formatTime = (seconds) => {
-    const mins = Math.floor(seconds / 60);
-    const secs = seconds % 60;
-    return `${mins}:${secs < 10 ? "0" : ""}${secs}`;
-  };
-
   if (stateLoading || questionsLoading) {
     return (
       <div className="flex flex-col items-center justify-center min-h-[400px] space-y-4">
@@ -348,97 +345,70 @@ export default function StudentAssessmentRunner({ sessionId, onBack }) {
       );
     }
 
+    // ── Multi-Select Checklist branch (O*NET Interest Profiler, checkbox type) ─
+    if (definition?.responseType === "checkbox") {
+      return (
+        <MultiSelectChecklistRunner
+          sessionId={sessionId}
+          session={session}
+          questions={questions}
+          initialAnswers={answers}
+          timeSpent={timeSpent}
+          onSubmitComplete={() => {
+            setViewMode("COMPLETION");
+            refetchState();
+          }}
+        />
+      );
+    }
+
     return (
       <div className="max-w-4xl mx-auto space-y-6 pb-12">
-        {/* Sticky Header — sits flush below the app top nav bar */}
-        <div
+        {/* Sticky Header — shared component, sits flush below the app top nav bar */}
+        <AssessmentProgressHeader
           ref={headerRef}
-          className="sticky top-16 z-20 bg-background/95 backdrop-blur border border-border/80 rounded-xl p-4 shadow-md space-y-3"
-        >
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-            <div>
-              <h3 className="font-bold text-base flex items-center gap-2">
-                {definition?.title || "Assessment"}
-                <Badge variant="secondary" className="text-[10px] font-mono">
-                  {currentSection.title}
-                </Badge>
-              </h3>
-              <p className="text-xs text-muted-foreground">
-                {isCheckbox
-                  ? `Activities selected: ${selectedCount} of ${totalQuestionsCount}`
-                  : `${answeredCount} of ${totalQuestionsCount} questions answered (${progressPercentage}%)`}
-              </p>
-            </div>
+          title={definition?.title || "Assessment"}
+          badge={currentSection.title}
+          progressText={`${answeredCount} of ${totalQuestionsCount} questions answered (${progressPercentage}%)`}
+          progressValue={progressPercentage}
+          saveStatus={saveStatus}
+          timeSpent={timeSpent}
+          footer={
+            sections.length > 1 && (
+              <div className="px-4 pb-3 flex items-center gap-1.5 overflow-x-auto no-scrollbar">
+                {sections.map((sec, idx) => {
+                  const isActive = idx === activeSectionIndex;
+                  const secQuestions = questions.filter(
+                    (q) => q.questionNumber >= sec.questionStart && q.questionNumber <= sec.questionEnd
+                  );
+                  const secAnswered = secQuestions.filter((q) => answers[q.id] !== undefined && answers[q.id] !== null).length;
+                  const isSecComplete = secQuestions.length > 0 && secAnswered === secQuestions.length;
 
-            <div className="flex items-center gap-3 text-xs">
-              {/* Autosave Indicator */}
-              <div className="flex items-center gap-1.5 font-medium">
-                {saveStatus === "saving" && (
-                  <>
-                    <Loader2 className="size-3.5 animate-spin text-amber-500" />
-                    <span className="text-amber-600">Autosaving...</span>
-                  </>
-                )}
-                {saveStatus === "saved" && (
-                  <>
-                    <CheckCircle2 className="size-3.5 text-emerald-600" />
-                    <span className="text-emerald-700">Autosaved</span>
-                  </>
-                )}
-                {saveStatus === "unsaved" && (
-                  <>
-                    <AlertCircle className="size-3.5 text-destructive" />
-                    <span className="text-destructive">Unsaved Changes</span>
-                  </>
-                )}
+                  return (
+                    <button
+                      key={sec.id}
+                      onClick={() => {
+                        setActiveSectionIndex(idx);
+                        scrollToFirstQuestion();
+                      }}
+                      className={`px-3 py-1.5 rounded-md text-xs font-semibold shrink-0 transition-colors flex items-center gap-1.5 border ${
+                        isActive
+                          ? "bg-primary text-primary-foreground border-primary"
+                          : isSecComplete
+                          ? "bg-emerald-50 text-emerald-800 border-emerald-300 dark:bg-emerald-950/40 dark:text-emerald-300"
+                          : "bg-muted/50 hover:bg-muted text-muted-foreground border-border/50"
+                      }`}
+                    >
+                      {isSecComplete && <CheckCircle2 className="size-3 shrink-0" />}
+                      <span>{sec.title}</span>
+                      <span className="text-[10px] opacity-80">({secAnswered}/{secQuestions.length})</span>
+                    </button>
+                  );
+                })}
               </div>
-
-              {/* Timer */}
-              <div className="flex items-center gap-1 px-2.5 py-1 rounded bg-muted font-mono font-semibold">
-                <Clock className="size-3.5 text-primary" />
-                <span>{formatTime(timeSpent)}</span>
-              </div>
-            </div>
-          </div>
-
-          {/* Progress Bar */}
-          <Progress value={progressPercentage} className="h-2" />
-
-          {/* Section Navigation Tabs */}
-          {sections.length > 1 && (
-            <div className="flex items-center gap-1.5 overflow-x-auto pt-1 no-scrollbar">
-              {sections.map((sec, idx) => {
-                const isActive = idx === activeSectionIndex;
-                const secQuestions = questions.filter(
-                  (q) => q.questionNumber >= sec.questionStart && q.questionNumber <= sec.questionEnd
-                );
-                const secAnswered = secQuestions.filter((q) => answers[q.id] !== undefined && answers[q.id] !== null).length;
-                const isSecComplete = secQuestions.length > 0 && secAnswered === secQuestions.length;
-
-                return (
-                  <button
-                    key={sec.id}
-                    onClick={() => {
-                      setActiveSectionIndex(idx);
-                      scrollToFirstQuestion();
-                    }}
-                    className={`px-3 py-1.5 rounded-md text-xs font-semibold shrink-0 transition-colors flex items-center gap-1.5 border ${
-                      isActive
-                        ? "bg-primary text-primary-foreground border-primary"
-                        : isSecComplete
-                        ? "bg-emerald-50 text-emerald-800 border-emerald-300 dark:bg-emerald-950/40 dark:text-emerald-300"
-                        : "bg-muted/50 hover:bg-muted text-muted-foreground border-border/50"
-                    }`}
-                  >
-                    {isSecComplete && <CheckCircle2 className="size-3 shrink-0" />}
-                    <span>{sec.title}</span>
-                    <span className="text-[10px] opacity-80">({secAnswered}/{secQuestions.length})</span>
-                  </button>
-                );
-              })}
-            </div>
-          )}
-        </div>
+            )
+          }
+        />
 
         {/* Section Description Header */}
         <div className="p-4 rounded-lg bg-muted/30 border border-border/50 flex items-center justify-between">
@@ -465,7 +435,7 @@ export default function StudentAssessmentRunner({ sessionId, onBack }) {
                 ref={qIdx === 0 ? firstQuestionRef : undefined}
                 tabIndex={0}
                 onFocus={() => setFocusedQuestionId(q.id)}
-                style={{ scrollMarginTop: `calc(64px + ${headerRef.current?.offsetHeight ?? 120}px + 16px)` }}
+                style={{ scrollMarginTop: `calc(${headerRef.current?.offsetHeight ?? 120}px + 16px)` }}
                 className={`transition-all border ${
                   isFocused
                     ? "ring-2 ring-primary/40 border-primary shadow-sm"
@@ -542,7 +512,6 @@ export default function StudentAssessmentRunner({ sessionId, onBack }) {
                             }`}
                           >
                             <span className="text-xs">{opt.label}</span>
-                            <span className="text-[10px] opacity-75 font-mono">({opt.value})</span>
                           </button>
                         );
                       })}

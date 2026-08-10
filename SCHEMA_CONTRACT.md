@@ -38,3 +38,6 @@ This document defines the single source of truth for field names, types, and ent
 
 4. **Population Projection Inclusion**:
    - When calling `.populate("userId")` or `.populate("studentId")` in service methods, always include `counselorId` in the field selection string (e.g., `.populate("userId", "firstName lastName email role counselorId")`) to prevent authorization checks from receiving `undefined`.
+
+5. **`_id` → `id` Serialization Rename**:
+   - The shared `defaultSchemaOptions` (`server/src/shared/utils/schema.utils.js`) rewrites every serialized document so `_id` is **deleted** and exposed as `id`. This applies to `toJSON` AND `toObject`, so anything that reaches the API response or `res.json()` carries `id`, NOT `_id` — while `.lean()` results (e.g. `assessmentDefinition.routes.js`) still carry `_id`. Never compare a raw `_id` against a serialized `id` in the frontend (this has caused ObjectId mismatch bugs where scoped lists render empty); resolve either shape with a helper such as `resolveId()` in `client/src/features/assessments/components/AssignmentRow.jsx` before comparing.

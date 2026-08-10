@@ -71,10 +71,38 @@ class AssessmentSessionService {
         throw new ApiError(400, `Assessment session for this assignment has already been ${session.status}.`);
       }
 
-      // If in progress, update lastActiveAt and return existing session (Resume)
-      if (session.status === SESSION_STATUS.IN_PROGRESS) {
+      // If in progress or not_started (fresh retake), update status to IN_PROGRESS and return session (Resume/Start)
+      if (
+        session.status === SESSION_STATUS.IN_PROGRESS ||
+        session.status === SESSION_STATUS.NOT_STARTED
+      ) {
+        if (session.status === SESSION_STATUS.NOT_STARTED) {
+          session.status = SESSION_STATUS.IN_PROGRESS;
+          session.startedAt = session.startedAt || new Date();
+        }
         session.lastActiveAt = new Date();
         await session.save();
+
+        // Ensure raw AssessmentResponse document exists for session
+        let responseDoc = await AssessmentResponse.findOne({ sessionId: session._id });
+        if (!responseDoc) {
+          await AssessmentResponse.create({
+            sessionId: session._id,
+            clientId: assignment.studentId,
+            assessmentDefinitionId: assignment.assessmentDefinitionId,
+            responses: [],
+          });
+        }
+
+        // Update assignment status to IN_PROGRESS
+        if (assignment.status !== ASSIGNMENT_STATUS.IN_PROGRESS) {
+          assignment.status = ASSIGNMENT_STATUS.IN_PROGRESS;
+          if (!assignment.startedAt) {
+            assignment.startedAt = new Date();
+          }
+          await assignment.save();
+        }
+
         return await this.getSessionState(session._id, requestingUser);
       }
     }
@@ -147,7 +175,10 @@ class AssessmentSessionService {
    */
   async getSessionState(sessionId, requestingUser) {
     const session = await AssessmentSession.findById(sessionId)
-      .populate("assessmentDefinitionId", "title code category instructions estimatedDuration scale metadata")
+      .populate(
+        "assessmentDefinitionId",
+        "title code category responseType instructions estimatedDuration scale metadata"
+      )
       .populate("assignmentId", "status dueDate counselorNotes");
 
     if (!session) {

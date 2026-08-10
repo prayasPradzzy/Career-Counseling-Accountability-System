@@ -302,7 +302,9 @@ class AssessmentAssignmentService {
       throw new ApiError(403, "Only counselors and administrators can access counselor assignment lists.");
     }
 
-    const query = {};
+    const query = {
+      studentId: { $exists: true, $ne: null },
+    };
 
     // Counselor scope: include assignments created by counselor OR for counselor's assigned students
     if (requestingUser.role === "counselor") {
@@ -318,8 +320,8 @@ class AssessmentAssignmentService {
       const userIds = users.map((u) => u._id);
 
       const studentIds = Array.from(
-        new Set([...profileUserIds, ...userIds].map((id) => id.toString()))
-      );
+        new Set([...profileUserIds, ...userIds].filter(Boolean).map((id) => id.toString()))
+      ).map((idStr) => new mongoose.Types.ObjectId(idStr));
 
       query.$or = [
         { counselorId: requestingUser._id },
@@ -369,36 +371,85 @@ class AssessmentAssignmentService {
       }
     }
 
-    const assignments = await AssessmentAssignment.find(query)
+    const rawAssignments = await AssessmentAssignment.find(query)
       .populate("studentId", "firstName lastName email")
       .populate("counselorId", "firstName lastName email")
       .populate("assessmentDefinitionId", "title code category estimatedDuration description")
-      .sort({ assignedAt: -1 });
+      .sort({ assignedAt: -1, createdAt: -1 });
 
-    // Attach active/completed session progress summary to each assignment
+    const getDocId = (val) => {
+      if (!val) return "";
+      if (typeof val === "string") return val;
+      if (val._id) return val._id.toString();
+      if (val.id) return val.id.toString();
+      return "";
+    };
+
+    // Deduplicate: Keep only the latest assignment per unique (studentId, assessmentDefinitionId)
+    const latestAssignmentsMap = new Map();
+    for (const a of rawAssignments) {
+      const sId = getDocId(a.studentId);
+      const defId = getDocId(a.assessmentDefinitionId);
+
+      if (!sId || !defId) continue;
+      const compositeKey = `${sId}:${defId}`;
+
+      if (!latestAssignmentsMap.has(compositeKey)) {
+        latestAssignmentsMap.set(compositeKey, a);
+      }
+    }
+
+    const assignments = Array.from(latestAssignmentsMap.values());
+
+    // Attach active/completed non-superseded session progress summary to each unique assignment
     const assignmentIds = assignments.map((a) => a._id);
     const AssessmentSession = require("./assessmentSession.model");
+    const { SESSION_STATUS } = require("./assessmentSession.model");
     const AssessmentScore = require("./assessmentScore.model");
 
-    const sessions = await AssessmentSession.find({ assignmentId: { $in: assignmentIds } }).sort({ createdAt: -1 });
+    // Fetch non-superseded sessions for these assignments
+    const sessions = await AssessmentSession.find({
+      assignmentId: { $in: assignmentIds },
+      status: { $ne: SESSION_STATUS.SUPERSEDED },
+    }).sort({ createdAt: -1 });
+
     const sessionIds = sessions.map((s) => s._id);
     const scores = await AssessmentScore.find({ sessionId: { $in: sessionIds }, isCurrent: true });
 
     const sessionMap = new Map();
     for (const s of sessions) {
-      const existing = sessionMap.get(s.assignmentId.toString());
-      if (!existing || existing.status === "superseded") {
-        sessionMap.set(s.assignmentId.toString(), s);
+      const key = s.assignmentId.toString();
+      if (!sessionMap.has(key)) {
+        sessionMap.set(key, s);
       }
     }
 
     const scoreSet = new Set(scores.map((sc) => sc.sessionId.toString()));
 
-    return assignments.map((a) => {
+    let result = assignments.map((a) => {
       const aObj = a.toObject();
       const s = sessionMap.get(a._id.toString());
       const hasScore = s ? scoreSet.has(s._id.toString()) : false;
 
+      // Determine live effective status from current non-superseded session
+      let effectiveStatus = a.status;
+      if (s) {
+        if (s.status === SESSION_STATUS.NOT_STARTED) {
+          effectiveStatus = ASSIGNMENT_STATUS.ASSIGNED;
+        } else if (s.status === SESSION_STATUS.IN_PROGRESS) {
+          effectiveStatus = ASSIGNMENT_STATUS.IN_PROGRESS;
+        } else if (
+          s.status === SESSION_STATUS.COMPLETED ||
+          s.status === SESSION_STATUS.SUBMITTED ||
+          s.status === SESSION_STATUS.REVIEWED ||
+          s.status === SESSION_STATUS.APPROVED
+        ) {
+          effectiveStatus = ASSIGNMENT_STATUS.COMPLETED;
+        }
+      }
+
+      aObj.status = effectiveStatus;
+      aObj.effectiveStatus = effectiveStatus;
       aObj.hasScore = hasScore;
       aObj.sessionSummary = s
         ? {
@@ -415,48 +466,74 @@ class AssessmentAssignmentService {
         : null;
       return aObj;
     });
+
+    // Apply statusGroup filtering on effectiveStatus if specified
+    if (filters.statusGroup) {
+      switch (filters.statusGroup.toLowerCase()) {
+        case "pending":
+        case "not_started":
+          result = result.filter(
+            (a) => a.status === ASSIGNMENT_STATUS.ASSIGNED || a.status === ASSIGNMENT_STATUS.SCHEDULED
+          );
+          break;
+        case "in_progress":
+          result = result.filter((a) => a.status === ASSIGNMENT_STATUS.IN_PROGRESS);
+          break;
+        case "submitted":
+        case "completed":
+          result = result.filter(
+            (a) =>
+              a.status === ASSIGNMENT_STATUS.COMPLETED ||
+              a.status === ASSIGNMENT_STATUS.UNDER_REVIEW ||
+              a.status === ASSIGNMENT_STATUS.APPROVED
+          );
+          break;
+        case "rejected":
+        case "retake":
+          result = result.filter((a) => a.status === ASSIGNMENT_STATUS.REJECTED);
+          break;
+        default:
+          break;
+      }
+    }
+
+    return result;
   }
 
   /**
    * 9. Counselor requests retake / rejects assignment
-   * Preserves historical session and score documents, setting them to superseded / isCurrent=false.
+   * Generic across all assessments (IPIP-NEO-120, O*NET Interest Profiler, O*NET WIL, etc.)
+   * Uses Mongoose query filter for counselor-student ownership check.
    */
-  async rejectAssignment(assignmentId, counselorNotes, requestingUser) {
+  async requestRetake(data, requestingUser) {
+    const { sessionId, assignmentId, reason, counselorNotes } = data || {};
+
     if (requestingUser.role !== "counselor" && requestingUser.role !== "admin") {
-      throw new ApiError(403, "Only counselors can reject or request retakes.");
+      throw new ApiError(403, "Only counselors and administrators can request assessment retakes.");
     }
 
-    const reason = counselorNotes ? String(counselorNotes).trim() : "";
-    if (!reason) {
+    const reasonStr = String(reason || counselorNotes || "").trim();
+    if (!reasonStr) {
       throw new ApiError(400, "Please provide a reason explaining why a retake is required.");
     }
 
-    const assignment = await AssessmentAssignment.findById(assignmentId)
-      .populate("studentId", "firstName lastName email counselorId")
-      .populate("counselorId", "firstName lastName email")
-      .populate("assessmentDefinitionId", "title code category");
-
-    if (!assignment) {
-      throw new ApiError(404, "Assessment assignment not found.");
-    }
-
-    // RBAC & Ownership check for counselors
+    // Mongoose query filter for counselor-student ownership check
+    let studentIds = [];
     if (requestingUser.role === "counselor") {
-      const targetStudentId = assignment.studentId ? assignment.studentId._id || assignment.studentId : null;
-      const assignmentCounselorAuthorized = assignment.counselorId && isSameId(assignment.counselorId, requestingUser._id);
-      let isAuthorized = assignmentCounselorAuthorized;
+      const counselorId = requestingUser._id;
+      const [profiles, users] = await Promise.all([
+        StudentProfile.find({
+          $or: [{ assignedCounselorId: counselorId }, { invitedBy: counselorId }],
+        }).select("userId"),
+        User.find({ counselorId, role: "student" }).select("_id"),
+      ]);
 
-      if (!isAuthorized && targetStudentId) {
-        const [studentUser, studentProfile] = await Promise.all([
-          User.findById(targetStudentId).select("counselorId role"),
-          StudentProfile.findOne({ userId: targetStudentId }).select("assignedCounselorId invitedBy"),
-        ]);
-        isAuthorized = canCounselorAccessStudent(requestingUser._id, studentUser, studentProfile);
-      }
+      const profileUserIds = profiles.map((p) => p.userId).filter(Boolean);
+      const userIds = users.map((u) => u._id).filter(Boolean);
 
-      if (!isAuthorized) {
-        throw new ApiError(403, "Access denied: You can only request retakes for your assigned students.");
-      }
+      studentIds = Array.from(
+        new Set([...profileUserIds, ...userIds].map((id) => id.toString()))
+      ).map((idStr) => new mongoose.Types.ObjectId(idStr));
     }
 
     const AssessmentSession = require("./assessmentSession.model");
@@ -465,23 +542,83 @@ class AssessmentAssignmentService {
     const RetakeRequest = require("./retakeRequest.model");
     const Notification = require("../notifications/notification.model");
 
-    // 1. Locate original active/submitted/completed session
-    const originalSession = await AssessmentSession.findOne({
-      assignmentId: assignment._id,
-      status: { $ne: SESSION_STATUS.SUPERSEDED },
-    }).sort({ createdAt: -1 });
+    let originalSession = null;
+    let assignment = null;
 
-    // 2. Mark original session as SUPERSEDED
+    if (sessionId) {
+      const sessionQuery = { _id: sessionId };
+      if (requestingUser.role === "counselor") {
+        sessionQuery.clientId = { $in: studentIds };
+      }
+      originalSession = await AssessmentSession.findOne(sessionQuery).populate("assessmentDefinitionId");
+      if (!originalSession && requestingUser.role === "counselor") {
+        const candidateSession = await AssessmentSession.findById(sessionId).populate("assessmentDefinitionId");
+        if (candidateSession && candidateSession.assignmentId) {
+          const candidateAssignment = await AssessmentAssignment.findById(candidateSession.assignmentId);
+          if (candidateAssignment && isSameId(candidateAssignment.counselorId, requestingUser._id)) {
+            originalSession = candidateSession;
+            assignment = candidateAssignment;
+          }
+        }
+      }
+      if (!originalSession) {
+        throw new ApiError(404, "Assessment session not found or access denied.");
+      }
+      if (!assignment && originalSession.assignmentId) {
+        assignment = await AssessmentAssignment.findById(originalSession.assignmentId);
+      }
+    } else if (assignmentId) {
+      const assignmentQuery = { _id: assignmentId };
+      if (requestingUser.role === "counselor") {
+        assignmentQuery.$or = [
+          { counselorId: requestingUser._id },
+          { studentId: { $in: studentIds } },
+        ];
+      }
+      assignment = await AssessmentAssignment.findOne(assignmentQuery).populate("assessmentDefinitionId");
+      if (!assignment) {
+        throw new ApiError(404, "Assessment assignment not found or access denied.");
+      }
+      originalSession = await AssessmentSession.findOne({
+        assignmentId: assignment._id,
+        status: { $ne: SESSION_STATUS.SUPERSEDED },
+      }).sort({ createdAt: -1 });
+    } else {
+      throw new ApiError(400, "Must provide either sessionId or assignmentId.");
+    }
+
+    const rawStudentId = originalSession
+      ? (originalSession.clientId?._id || originalSession.clientId)
+      : (assignment?.studentId?._id || assignment?.studentId);
+
+    if (!rawStudentId) {
+      throw new ApiError(400, "Cannot request retake: Student account is missing or no longer exists for this assignment.");
+    }
+    const studentId = rawStudentId;
+
+    const defId = originalSession
+      ? (originalSession.assessmentDefinitionId?._id || originalSession.assessmentDefinitionId)
+      : (assignment?.assessmentDefinitionId?._id || assignment?.assessmentDefinitionId);
+
+    const definition = await AssessmentDefinition.findById(defId);
+    const assessmentKey =
+      definition?.metadata?.assessmentKey ||
+      definition?.code?.toLowerCase()?.replace(/_/g, "-") ||
+      "assessment";
+
+    // 1. Mark original session as SUPERSEDED (if present)
     if (originalSession) {
       originalSession.status = SESSION_STATUS.SUPERSEDED;
       await originalSession.save();
     }
 
-    // 3. Mark original scores as isCurrent = false
-    await AssessmentScore.updateMany(
-      { assignmentId: assignment._id },
-      { $set: { isCurrent: false } }
-    );
+    // 2. Mark original scores as isCurrent = false
+    if (assignment) {
+      await AssessmentScore.updateMany(
+        { assignmentId: assignment._id },
+        { $set: { isCurrent: false } }
+      );
+    }
     if (originalSession) {
       await AssessmentScore.updateMany(
         { sessionId: originalSession._id },
@@ -489,53 +626,72 @@ class AssessmentAssignmentService {
       );
     }
 
-    // 4. Create fresh new AssessmentSession
+    // 3. Create fresh new AssessmentSession with status 'not_started'
     const newSession = await AssessmentSession.create({
-      clientId: assignment.studentId._id || assignment.studentId,
-      assessmentDefinitionId: assignment.assessmentDefinitionId._id || assignment.assessmentDefinitionId,
-      assignmentId: assignment._id,
+      clientId: studentId,
+      assessmentDefinitionId: defId,
+      assignmentId: assignment ? assignment._id : null,
       status: SESSION_STATUS.NOT_STARTED,
       retakeOf: originalSession ? originalSession._id : null,
+      timeSpentSeconds: 0,
+      currentQuestionIndex: 0,
+      progress: { answeredCount: 0, totalQuestions: 0, percentage: 0 },
     });
 
-    // 5. Link supersededBy on original session
+    // 4. Link supersededBy on original session
     if (originalSession) {
       originalSession.supersededBy = newSession._id;
       await originalSession.save();
     }
 
-    // 6. Record RetakeRequest audit document
-    await RetakeRequest.create({
+    // 5. Create RetakeRequest audit record
+    const retakeRecord = await RetakeRequest.create({
       originalSessionId: originalSession ? originalSession._id : newSession._id,
       newSessionId: newSession._id,
-      assignmentId: assignment._id,
+      assignmentId: assignment ? assignment._id : null,
+      studentId: studentId,
+      assessmentKey: assessmentKey,
       requestedBy: requestingUser._id,
-      reason: reason,
+      reason: reasonStr,
+      requestedAt: new Date(),
     });
 
-    // 7. Update AssessmentAssignment status & counselor notes
-    assignment.status = ASSIGNMENT_STATUS.REJECTED;
-    assignment.counselorNotes = reason;
-    await assignment.save();
+    // 6. Update linked AssessmentAssignment (if present)
+    if (assignment) {
+      assignment.status = ASSIGNMENT_STATUS.REJECTED;
+      assignment.counselorNotes = reasonStr;
+      await assignment.save();
+    }
+
+    // 7. Update Student Profile Lifecycle Status
+    const profile = await StudentProfile.findOne({ userId: studentId });
+    if (profile) {
+      profile.status = deriveStudentLifecycleStatus(profile, { assessmentState: "pending" });
+      await profile.save();
+    }
 
     // 8. Send notification alert to student
     try {
-      const defTitle = assignment.assessmentDefinitionId?.title || "Assessment";
+      const defTitle = definition?.title || "Assessment";
       await Notification.create({
-        userId: assignment.studentId._id || assignment.studentId,
+        userId: studentId,
         title: "Retake Requested",
-        message: `Your counselor requested a retake for ${defTitle}: "${reason}"`,
+        message: `Your counselor requested a retake for ${defTitle}: "${reasonStr}"`,
         type: "assessment_retake",
-        link: `/assessments/${assignment._id}`,
+        link: `/assessments`,
       });
     } catch (notifErr) {
       console.error("[Retake Notification Error]", notifErr.message);
     }
 
-    return await AssessmentAssignment.findById(assignment._id)
+    return await AssessmentAssignment.findById(assignment ? assignment._id : null)
       .populate("studentId", "firstName lastName email")
       .populate("counselorId", "firstName lastName email")
-      .populate("assessmentDefinitionId", "title code category");
+      .populate("assessmentDefinitionId", "title code category") || { newSession, retakeRecord };
+  }
+
+  async rejectAssignment(assignmentId, counselorNotes, requestingUser) {
+    return await this.requestRetake({ assignmentId, reason: counselorNotes }, requestingUser);
   }
 
   /**

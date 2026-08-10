@@ -46,21 +46,10 @@ const getStudentResults = catchAsync(async (req, res) => {
 const requestRetakeBySessionId = catchAsync(async (req, res) => {
   const { sessionId } = req.params;
   const { reason, counselorNotes } = req.body;
-  const AssessmentSession = require("./assessmentSession.model");
   const assessmentAssignmentService = require("./assessmentAssignment.service");
-  const ApiError = require("../../shared/utils/ApiError");
 
-  const session = await AssessmentSession.findById(sessionId);
-  if (!session) {
-    throw new ApiError(404, "Assessment session not found.");
-  }
-  if (!session.assignmentId) {
-    throw new ApiError(400, "Session is not linked to an assignment.");
-  }
-
-  const result = await assessmentAssignmentService.rejectAssignment(
-    session.assignmentId,
-    reason || counselorNotes,
+  const result = await assessmentAssignmentService.requestRetake(
+    { sessionId, reason: reason || counselorNotes },
     req.user
   );
   res.status(200).json(new ApiResponse(200, result, "Assessment retake requested successfully."));

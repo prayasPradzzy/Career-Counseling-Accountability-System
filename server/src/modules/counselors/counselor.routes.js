@@ -143,4 +143,13 @@ router.get(
   })
 );
 
+const assessmentSessionController = require("../assessments/assessmentSession.controller");
+
+// POST /api/v1/counselor/assessments/:sessionId/retake
+router.post(
+  "/assessments/:sessionId/retake",
+  restrictTo("counselor", "admin"),
+  assessmentSessionController.requestRetakeBySessionId
+);
+
 module.exports = router;

@@ -18,7 +18,19 @@ const retakeRequestSchema = new mongoose.Schema(
     assignmentId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "AssessmentAssignment",
+      default: null,
+      index: true,
+    },
+    studentId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
       required: true,
+      index: true,
+    },
+    assessmentKey: {
+      type: String,
+      default: "",
+      trim: true,
       index: true,
     },
     requestedBy: {

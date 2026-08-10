@@ -11,7 +11,7 @@ import { ContentWrapper } from "./ContentWrapper";
  */
 export function AppLayout({ children, maxWidth }) {
   return (
-    <div className="flex min-h-svh bg-background">
+    <div className="flex h-svh bg-background">
       {/* Left persistent desktop sidebar */}
       <DashboardSidebar />
 

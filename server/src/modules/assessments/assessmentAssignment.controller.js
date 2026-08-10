@@ -51,8 +51,11 @@ const getCounselorAssignments = catchAsync(async (req, res) => {
 
 const rejectAssignment = catchAsync(async (req, res) => {
   const { assignmentId } = req.params;
-  const { counselorNotes } = req.body;
-  const assignment = await assessmentAssignmentService.rejectAssignment(assignmentId, counselorNotes, req.user);
+  const { counselorNotes, reason } = req.body;
+  const assignment = await assessmentAssignmentService.requestRetake(
+    { assignmentId, reason: reason || counselorNotes },
+    req.user
+  );
   res.status(200).json(new ApiResponse(200, { assignment }, "Assessment marked for retake / rejected."));
 });
 
