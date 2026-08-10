@@ -1,6 +1,7 @@
 const LikertSumStrategy = require("./strategies/likertSumStrategy");
 const IPIPNEO120Strategy = require("./strategies/ipipNeo120Strategy");
 const RIASECHollandStrategy = require("./strategies/riasecHollandStrategy");
+const OnetWilStrategy = require("./strategies/onetWilStrategy");
 
 /**
  * ScoringRegistry — Strategy Pattern Registry for Assessment Scoring
@@ -15,6 +16,7 @@ class ScoringRegistry {
     this.register(new LikertSumStrategy("likert_sum"));
     this.register(new IPIPNEO120Strategy());
     this.register(new RIASECHollandStrategy());
+    this.register(new OnetWilStrategy());
   }
 
   /**
@@ -49,6 +51,9 @@ class ScoringRegistry {
     }
     if (key.includes("riasec") || key.includes("holland")) {
       return this.strategies.get("riasec_holland");
+    }
+    if (key.includes("wil") || key.includes("work_importance") || key.includes("work-importance")) {
+      return this.strategies.get("onet_wil");
     }
 
     // Fallback default

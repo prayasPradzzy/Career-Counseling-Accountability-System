@@ -10,6 +10,7 @@ import {
 } from "../hooks/useAssessmentSession";
 import StudentResultsViewer from "./StudentResultsViewer";
 import ConfirmSubmissionModal from "./ConfirmSubmissionModal";
+import ForcedRankSortRunner from "./ForcedRankSortRunner";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
@@ -330,6 +331,23 @@ export default function StudentAssessmentRunner({ sessionId, onBack }) {
   // VIEW 2: INTERACTIVE ASSESSMENT RUNNER
   // ============================================================
   if (viewMode === "RUNNER") {
+    // ── Forced-Rank Sort branch (O*NET WIL) ─────────────────────────────────
+    if (definition?.responseType === "forced-rank-sort") {
+      return (
+        <ForcedRankSortRunner
+          sessionId={sessionId}
+          session={session}
+          questions={questions}
+          initialAnswers={answers}
+          timeSpent={timeSpent}
+          onSubmitComplete={() => {
+            setViewMode("COMPLETION");
+            refetchState();
+          }}
+        />
+      );
+    }
+
     return (
       <div className="max-w-4xl mx-auto space-y-6 pb-12">
         {/* Sticky Header — sits flush below the app top nav bar */}
@@ -587,10 +605,12 @@ export default function StudentAssessmentRunner({ sessionId, onBack }) {
     );
   }
 
-  // ============================================================
-  // VIEW 3: COMPLETION SCREEN (STUDENT PERSONALITY SNAPSHOT)
-  // ============================================================
-  const assessmentKey = definition?.code?.toLowerCase()?.replace(/_/g, "-") || "ipip-neo-120";
+  // ── VIEW 3: COMPLETION (student results) ──────────────────────────────────
+  // Derive assessmentKey from definition metadata (set by seeder) with fallbacks
+  const assessmentKey =
+    definition?.metadata?.assessmentKey ||
+    definition?.code?.toLowerCase()?.replace(/_/g, "-") ||
+    "ipip-neo-120";
 
   return (
     <StudentResultsViewer

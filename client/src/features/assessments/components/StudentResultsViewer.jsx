@@ -30,6 +30,15 @@ export default function StudentResultsViewer({
   const { data, isLoading, error } = useMyAssessmentResults(assessmentKey);
   const results = data?.data || {};
   const insights = results.insights || [];
+  const topWorkValues = results.topWorkValues || [];
+
+  // Derive a friendly snapshot title from category or assessmentKey
+  const snapshotTitle =
+    results.assessmentCategory === "values" || assessmentKey?.includes("wil")
+      ? "Your Work Values Snapshot"
+      : results.assessmentCategory === "interest" || assessmentKey?.includes("interest")
+      ? "Your Interests Snapshot"
+      : "Your Personality Snapshot";
 
   return (
     <div className="max-w-2xl mx-auto my-8 space-y-6">
@@ -39,7 +48,7 @@ export default function StudentResultsViewer({
           <div className="mx-auto size-16 rounded-full bg-emerald-100 dark:bg-emerald-950/60 flex items-center justify-center text-emerald-600">
             <CheckCircle2 className="size-10" />
           </div>
-          <CardTitle className="text-2xl font-bold">Your Personality Snapshot</CardTitle>
+          <CardTitle className="text-2xl font-bold">{snapshotTitle}</CardTitle>
           <CardDescription className="text-sm max-w-md mx-auto">
             Insights based on your responses to the {results.assessmentName || definitionTitle || "Personality Assessment"}.
           </CardDescription>

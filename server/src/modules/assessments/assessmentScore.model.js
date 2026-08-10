@@ -221,6 +221,25 @@ const assessmentScoreSchema = new mongoose.Schema(
       default: null,
     },
 
+    // ── O*NET Work Importance Locator — Additive fields ────────────────────
+    // Empty arrays on all non-WIL score documents; populated by onetWilStrategy.
+
+    // Per-work-value weighted scores (6 entries for WIL)
+    workValueScores: [
+      {
+        code: { type: String, default: "" },
+        name: { type: String, default: "" },
+        rawSum: { type: Number, default: 0 },
+        weightedScore: { type: Number, default: 0 },
+        band: { type: String, enum: ["Low", "Moderate", "High", ""], default: "" },
+        _id: false,
+      },
+    ],
+
+    // Top 2 work value codes, e.g. ["independence", "achievement"]
+    topWorkValues: [{ type: String }],
+
+
     // Reference to previous score document if this is a retake/rescore
     previousScoreId: {
       type: mongoose.Schema.Types.ObjectId,

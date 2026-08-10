@@ -1,0 +1,28 @@
+{
+  "workValues": {
+    "achievement": {
+      "label": "Achievement",
+      "text": "You're motivated by using your abilities and feeling a real sense of accomplishment in your work. Careers with visible results and skill growth tend to be a strong fit."
+    },
+    "recognition": {
+      "label": "Recognition",
+      "text": "You value advancement, being acknowledged for your work, and having a clear path to grow. Careers with visible progression and merit-based recognition tend to be a strong fit."
+    },
+    "relationships": {
+      "label": "Relationships",
+      "text": "You value getting along well with others, doing meaningful work for people, and a strong sense of ethics on the job. Careers built around teamwork and service tend to be a strong fit."
+    },
+    "support": {
+      "label": "Support",
+      "text": "You value fair treatment and good management — supervisors who back their team and help them grow. A well-run, supportive workplace matters a lot to how satisfied you'll be."
+    },
+    "independence": {
+      "label": "Independence",
+      "text": "You value working things out your own way — trying your own ideas, making your own decisions, and working with minimal supervision. Careers with autonomy tend to be a strong fit."
+    },
+    "workingConditions": {
+      "label": "Working Conditions",
+      "text": "You value stability, variety, and a genuinely comfortable work environment day-to-day. How and where the work happens matters as much to you as what the work is."
+    }
+  }
+}

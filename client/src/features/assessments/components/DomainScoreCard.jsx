@@ -19,19 +19,25 @@ export function DomainScoreCard({ domain, defaultExpanded = false }) {
 
   const domainName = domain.dimensionName || domain.domainName || domain.name || "Domain";
   const domainCode = domain.domain || domain.code || "";
-  const rawScore = domain.score ?? domain.rawScore ?? 0;
+  const rawScore = domain.score ?? domain.rawScore ?? domain.weightedScore ?? 0;
   const band = domain.band || domain.qualitativeLevel || "Moderate";
   const interpretation = domain.interpretation || domain.desc || "";
   const facetScores = domain.facetScores || [];
 
-  const maxScore = domain.maxScore ?? (rawScore > 5 ? 10 : 5);
+  const maxScore = domain.maxScore ?? (rawScore > 10 ? 30 : rawScore > 5 ? 10 : 5);
   const percentage =
     domain.normalizedScore ??
     Math.min(
       100,
       Math.max(
         0,
-        Math.round(maxScore === 10 ? (rawScore / 10) * 100 : Math.max(0, ((rawScore - 1) / 4) * 100))
+        Math.round(
+          maxScore === 30
+            ? ((rawScore - (domain.minScore ?? 6)) / (30 - (domain.minScore ?? 6))) * 100
+            : maxScore === 10
+            ? (rawScore / 10) * 100
+            : Math.max(0, ((rawScore - 1) / 4) * 100)
+        )
       )
     );
 
@@ -53,7 +59,7 @@ export function DomainScoreCard({ domain, defaultExpanded = false }) {
             {band}
           </Badge>
           <span className="text-sm font-bold text-foreground font-mono">
-            {typeof rawScore === "number" ? (maxScore === 10 ? `${rawScore}` : rawScore.toFixed(1)) : rawScore} / {maxScore}
+            {typeof rawScore === "number" ? (maxScore === 5 ? rawScore.toFixed(1) : `${rawScore}`) : rawScore} / {maxScore}
           </span>
           {facetScores.length > 0 && (
             <Button

@@ -185,9 +185,28 @@ export default function CounselorAssessmentReviewDetail({ assignmentId }) {
     score?.scoringStrategy === "riasec_holland" ||
     Boolean(score?.hollandCode);
 
+  const isOnetWil =
+    def.code === "ONET_WORK_IMPORTANCE_LOCATOR" ||
+    def.category === "values" ||
+    score?.scoringStrategy === "onet_wil" ||
+    Boolean(score?.topWorkValues?.length > 0);
+
   const hollandCode = score?.hollandCode || score?.metadata?.hollandCode || "";
+  const topWorkValues = score?.topWorkValues || score?.metadata?.topWorkValues || [];
+  const wilHeadline = score?.overallCode || (topWorkValues.length > 0 ? topWorkValues.join(" · ") : "");
+
   const displayScores = isOnetInterest && score?.categoryScores?.length > 0
     ? score.categoryScores
+    : isOnetWil && score?.workValueScores?.length > 0
+    ? score.workValueScores.map((wv) => ({
+        ...wv,
+        domain: wv.code,
+        name: wv.name,
+        rawScore: wv.weightedScore,
+        score: wv.weightedScore,
+        maxScore: 30,
+        minScore: 6,
+      }))
     : domainScores;
 
   // Retake eligibility
@@ -464,6 +483,26 @@ export default function CounselorAssessmentReviewDetail({ assignmentId }) {
               </div>
               <Badge variant="outline" className="text-sm font-mono px-4 py-2 border-emerald-500/40 text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 shrink-0">
                 Top 3 Interests: {hollandCode}
+              </Badge>
+            </div>
+          )}
+
+          {/* Prominent Top Work Values Badge for O*NET Work Importance Locator */}
+          {isOnetWil && wilHeadline && (
+            <div className="p-6 rounded-2xl bg-gradient-to-r from-purple-500/10 via-primary/10 to-blue-500/10 border border-purple-500/30 flex flex-col sm:flex-row items-center justify-between gap-4 shadow-xs">
+              <div>
+                <div className="text-xs uppercase font-mono font-bold tracking-wider text-purple-600 dark:text-purple-400">
+                  Primary Assessment Takeaway
+                </div>
+                <h3 className="text-3xl font-extrabold font-mono tracking-tight text-foreground mt-1">
+                  Top Work Values: <span className="text-purple-600 dark:text-purple-400">{wilHeadline}</span>
+                </h3>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Your top two work values derived from your forced-rank sorting.
+                </p>
+              </div>
+              <Badge variant="outline" className="text-sm font-mono px-4 py-2 border-purple-500/40 text-purple-600 dark:text-purple-400 bg-purple-500/10 shrink-0">
+                Top 2: {wilHeadline}
               </Badge>
             </div>
           )}

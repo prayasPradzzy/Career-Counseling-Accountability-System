@@ -1,0 +1,55 @@
+{
+  "assessmentKey": "onet-work-importance-locator",
+  "name": "O*NET Work Importance Locator (WIL)",
+  "citation": "U.S. Department of Labor, Employment and Training Administration. O*NET Work Importance Locator, Version 3.0. Retired June 3, 2024 — archived materials provided for research purposes.",
+  "sourceStatus": "retired",
+  "sourceNote": "This tool was officially retired by O*NET on June 3, 2024. No technical support is available from the source. Materials used here per the O*NET Career Exploration Tools Content License (CC-BY 4.0), attribution required.",
+  "responseType": "forced-rank-sort",
+  "sortConfig": {
+    "totalItems": 20,
+    "columns": 5,
+    "itemsPerColumn": 4,
+    "scaleLabel": {
+      "5": "Most Important",
+      "4": "Important",
+      "3": "Somewhat Important",
+      "2": "Slightly Important",
+      "1": "Least Important"
+    }
+  },
+  "cards": [
+    { "id": "A", "text": "I make use of my abilities." },
+    { "id": "B", "text": "I would be treated fairly by the company." },
+    { "id": "C", "text": "I could be busy all the time." },
+    { "id": "D", "text": "The job would provide an opportunity for advancement." },
+    { "id": "E", "text": "I could give directions and instructions to others." },
+    { "id": "F", "text": "The work could give me a feeling of accomplishment." },
+    { "id": "G", "text": "My pay would compare well with that of other workers." },
+    { "id": "H", "text": "My co-workers would be easy to get along with." },
+    { "id": "I", "text": "I could try out my own ideas." },
+    { "id": "J", "text": "I could work alone." },
+    { "id": "K", "text": "I would never be pressured to do things that go against my sense of right and wrong." },
+    { "id": "L", "text": "I could receive recognition for the work I do." },
+    { "id": "M", "text": "I could make decisions on my own." },
+    { "id": "N", "text": "The job would provide for steady employment." },
+    { "id": "O", "text": "I could do things for other people." },
+    { "id": "P", "text": "I have supervisors who would back up their workers with management." },
+    { "id": "Q", "text": "I have supervisors who train their workers well." },
+    { "id": "R", "text": "I could do something different every day." },
+    { "id": "S", "text": "The job would have good working conditions." },
+    { "id": "T", "text": "I could plan my work with little supervision." }
+  ],
+  "workValues": [
+    { "code": "achievement", "name": "Achievement", "cardIds": ["A", "F"], "multiplier": 3 },
+    { "code": "recognition", "name": "Recognition", "cardIds": ["D", "E", "L"], "multiplier": 2 },
+    { "code": "relationships", "name": "Relationships", "cardIds": ["H", "K", "O"], "multiplier": 2 },
+    { "code": "support", "name": "Support", "cardIds": ["B", "P", "Q"], "multiplier": 2 },
+    { "code": "independence", "name": "Independence", "cardIds": ["I", "M", "T"], "multiplier": 2 },
+    { "code": "workingConditions", "name": "Working Conditions", "cardIds": ["C", "G", "J", "N", "R", "S"], "multiplier": 1 }
+  ],
+  "scoreRange": {
+    "min": 6,
+    "max": 30,
+    "note": "Every work value normalizes to the same 6-30 range regardless of card count, via the multiplier."
+  }
+}

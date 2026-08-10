@@ -530,6 +530,37 @@ class AssessmentSessionService {
 
     const session = await AssessmentSession.findById(score.sessionId);
 
+    // O*NET Work Importance Locator branch
+    if (
+      key.includes("wil") ||
+      key.includes("work-importance") ||
+      key.includes("work_importance") ||
+      score.scoringStrategy === "onet_wil"
+    ) {
+      const wilConfig = require("../../config/onetWilStudentInterpretations.json");
+      const topCodes = score.topWorkValues || [];
+
+      const insights = [];
+      for (const code of topCodes) {
+        const valueInfo = wilConfig.workValues[code];
+        if (valueInfo) {
+          insights.push({
+            code,
+            label: valueInfo.label,
+            text: valueInfo.text,
+          });
+        }
+      }
+
+      return {
+        assessmentName: score.assessmentDefinitionId?.title || "O*NET Work Importance Locator",
+        assessmentCategory: "values",
+        completedAt: session?.submittedAt || session?.completedAt || score.calculatedAt || score.computedAt,
+        topWorkValues: topCodes,
+        insights,
+      };
+    }
+
     // O*NET Interest Profiler / RIASEC Holland branch
     if (
       key.includes("onet") ||

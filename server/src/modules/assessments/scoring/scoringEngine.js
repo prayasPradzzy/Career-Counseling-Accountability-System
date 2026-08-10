@@ -89,6 +89,9 @@ class ScoringEngine {
       hollandCode: scorePayload.hollandCode || "",
       overallCode: scorePayload.overallCode,
       overallScore: scorePayload.overallScore,
+      // O*NET Work Importance Locator fields (additive — empty for other assessments)
+      workValueScores: scorePayload.workValueScores || [],
+      topWorkValues: scorePayload.topWorkValues || [],
       version,
       previousScoreId: existingScore ? existingScore._id : null,
       calculatedAt: new Date(),
