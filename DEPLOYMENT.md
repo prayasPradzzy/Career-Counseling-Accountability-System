@@ -35,7 +35,7 @@ Known non-blocking lint state: ESLint reports 22 errors / 10 warnings across the
 | `MONGODB_URI` | Your Atlas connection string (`mongodb+srv://...`) |
 | `JWT_SECRET` | Long random string, e.g. `node -e "console.log(require('crypto').randomBytes(48).toString('hex'))"` |
 | `JWT_EXPIRES_IN` | `7d` |
-| `CLIENT_URL` | Your Vercel URL, e.g. `https://your-app.vercel.app` (used for CORS + redirect links) |
+| `CLIENT_URL` | Your Vercel URL, e.g. `https://your-app.vercel.app` (used for CORS + redirect links). Accepts a **comma-separated list** of origins — Vercel regenerates project URLs on rename, so add every Vercel URL you use, e.g. `https://app.vercel.app,https://preview.vercel.app` |
 | `NODE_ENV` | `production` |
 | `PORT` | Render sets this automatically — the code reads `process.env.PORT` |
 
@@ -102,7 +102,7 @@ git push -u origin main
 
 ## Step 5 — Connect the two
 
-1. Back on Render → your service → **Environment** → set `CLIENT_URL` to the real Vercel URL from Step 4 (the CORS config in `server/src/app.js` reads `process.env.CLIENT_URL`).
+1. Back on Render → your service → **Environment** → set `CLIENT_URL` to the real Vercel URL from Step 4. It accepts a comma-separated list of origins, so include every Vercel URL you use (e.g. `https://your-app.vercel.app,https://your-old-app.vercel.app`). The CORS config in `server/src/app.js` reads `process.env.CLIENT_URL` and allows each origin listed.
 2. Render redeploys automatically on env change. Then re-deploy the Vercel side if you changed any `NEXT_PUBLIC_*` var (Vercel rebuilds on env change too).
 
 The cross-site cookie is already handled — the backend sends `SameSite=None; Secure` in production, which modern browsers accept over HTTPS.
@@ -125,6 +125,7 @@ The cross-site cookie is already handled — the backend sends `SameSite=None; S
 
 | Symptom | Likely cause |
 |---|---|
+| CORS block: "Access-Control-Allow-Origin ... not equal to the supplied origin" | `CLIENT_URL` on Render doesn't list the Vercel origin you're actually on (Vercel URL changed on rename/recreate) — update it to the current URL, or add it to the comma-separated list |
 | Frontend loads, API calls fail (401/CORS) | `NEXT_PUBLIC_API_URL` wrong (must include `/api/v1`), or `CLIENT_URL` not the exact Vercel origin |
 | First request after idle hangs 30–50 s | Render free-tier cold start — normal |
 | "Cannot connect to database" | Atlas Network Access not open (`0.0.0.0/0`), wrong `MONGODB_URI`, or DB user password |

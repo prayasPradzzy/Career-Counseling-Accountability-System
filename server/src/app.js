@@ -42,9 +42,25 @@ const app = express();
 app.use(helmet());
 
 // 2. CORS — Allow frontend to communicate with backend
+// CLIENT_URL accepts a single origin OR a comma-separated list, e.g.
+// "https://app.vercel.app,https://preview.vercel.app" — Vercel regenerates
+// project URLs on rename, so allowing several avoids surprise CORS blocks.
+const clientOrigins = (process.env.CLIENT_URL || "http://localhost:3000")
+  .split(",")
+  .map((origin) => origin.trim())
+  .filter(Boolean);
+
 app.use(
   cors({
-    origin: process.env.CLIENT_URL || "http://localhost:3000",
+    origin(origin, callback) {
+      // Requests without an Origin header (curl, health checks, same-origin)
+      // skip the allowlist check entirely.
+      if (!origin || clientOrigins.includes(origin)) {
+        return callback(null, true);
+      }
+      // Respond without CORS headers so the browser blocks the request.
+      return callback(null, false);
+    },
     credentials: true, // Allow cookies to be sent cross-origin
     methods: ["GET", "POST", "PUT", "PATCH", "DELETE"],
     allowedHeaders: ["Content-Type", "Authorization"],
