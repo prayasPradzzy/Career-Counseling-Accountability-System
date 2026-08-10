@@ -96,10 +96,10 @@ export default function AssessmentProgressHeader({
                 </Badge>
               )}
             </h3>
-            <p className="text-xs text-muted-foreground flex items-center gap-2 flex-wrap">
+            <div className="text-xs text-muted-foreground flex items-center gap-2 flex-wrap">
               {progressText}
               {extrasLeft}
-            </p>
+            </div>
           </div>
 
           {/* Right: status, timer, actions */}
