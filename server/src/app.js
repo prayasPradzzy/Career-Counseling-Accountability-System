@@ -45,9 +45,13 @@ app.use(helmet());
 // CLIENT_URL accepts a single origin OR a comma-separated list, e.g.
 // "https://app.vercel.app,https://preview.vercel.app" — Vercel regenerates
 // project URLs on rename, so allowing several avoids surprise CORS blocks.
+// Normalize: trim whitespace, strip trailing slashes, lowercase — prevents
+// silent CORS failures from a stray "/" or copy-paste case mismatch.
+const normalizeOrigin = (origin) => origin.trim().replace(/\/+$/, "").toLowerCase();
+
 const clientOrigins = (process.env.CLIENT_URL || "http://localhost:3000")
   .split(",")
-  .map((origin) => origin.trim())
+  .map(normalizeOrigin)
   .filter(Boolean);
 
 app.use(
@@ -55,7 +59,7 @@ app.use(
     origin(origin, callback) {
       // Requests without an Origin header (curl, health checks, same-origin)
       // skip the allowlist check entirely.
-      if (!origin || clientOrigins.includes(origin)) {
+      if (!origin || clientOrigins.includes(normalizeOrigin(origin))) {
         return callback(null, true);
       }
       // Respond without CORS headers so the browser blocks the request.
@@ -106,6 +110,8 @@ app.get("/api/v1/health", (req, res) => {
     success: true,
     message: "Server is running",
     environment: process.env.NODE_ENV || "development",
+    // Lets you verify the CORS allowlist from any browser in one click.
+    corsOrigins: clientOrigins,
     timestamp: new Date().toISOString(),
   });
 });
