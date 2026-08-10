@@ -23,11 +23,13 @@ class AuthController {
     // Set the JWT inside an HttpOnly cookie
     // HttpOnly: true prevents XSS (Cross-Site Scripting) by hiding the cookie from JavaScript
     // Secure: true ensures the cookie is only sent over HTTPS (disable in dev so it works on localhost)
-    // SameSite: "Lax" protects against CSRF attacks while allowing normal navigation
+    // SameSite: production must be "none" because the frontend (Vercel) and API (Render)
+    // are different sites — Lax would never attach the cookie to cross-site fetch calls.
+    // SameSite=None requires Secure, so it only applies over HTTPS in production.
     res.cookie("token", token, {
       httpOnly: true,
       secure: process.env.NODE_ENV === "production",
-      sameSite: "Lax",
+      sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
       maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days in milliseconds (must match JWT_EXPIRES_IN)
     });
 
@@ -44,7 +46,7 @@ class AuthController {
     res.cookie("token", "", {
       httpOnly: true,
       secure: process.env.NODE_ENV === "production",
-      sameSite: "Lax",
+      sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
       expires: new Date(0),
     });
 

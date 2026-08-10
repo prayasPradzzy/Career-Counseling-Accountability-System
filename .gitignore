@@ -1,0 +1,9 @@
+# Freebuff local tool state — never part of the app
+.freebuff/*.db
+.freebuff/*.db-shm
+.freebuff/*.db-wal
+.freebuff/*.log
+
+# OS
+.DS_Store
+Thumbs.db
