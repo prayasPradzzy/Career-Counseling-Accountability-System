@@ -180,7 +180,7 @@ export function SignupForm() {
 
           {(selectedRole === "student" || selectedRole === "parent") && (
             <div className="space-y-2">
-              <Label htmlFor="code">Counselor Invite Code *</Label>
+              <Label htmlFor="code">Counselor Invite Code</Label>
               <Input
                 id="code"
                 placeholder="Enter your invite code"
