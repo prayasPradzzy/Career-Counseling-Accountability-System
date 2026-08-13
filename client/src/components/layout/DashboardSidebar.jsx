@@ -29,10 +29,10 @@ export function DashboardSidebar() {
       {/* Brand */}
       <div className="flex h-16 items-center gap-2 border-b border-border px-6">
         <span className="flex size-7 items-center justify-center rounded-md bg-primary text-primary-foreground text-xs font-black">
-          C
+          M
         </span>
         <span className="font-bold tracking-tight text-foreground">
-          CareerPath
+          Margastra
         </span>
       </div>
 

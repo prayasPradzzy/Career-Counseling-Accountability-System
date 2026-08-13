@@ -16,11 +16,11 @@ const inter = Inter({
 
 export const metadata = {
   title: {
-    default: "CareerPath — AI-Powered Career Counseling",
-    template: "%s | CareerPath",
+    default: "Margastra — AI-Powered Career Counseling",
+    template: "%s | Margastra",
   },
   description:
-    "Connect with expert career counselors, take AI-powered assessments, and build a personalized career roadmap. CareerPath guides students and professionals to their ideal career.",
+    "Connect with expert career counselors, take AI-powered assessments, and build a personalized career roadmap. Margastra guides students and professionals to their ideal career.",
   keywords: [
     "career counseling",
     "career guidance",
@@ -33,10 +33,10 @@ export const metadata = {
   ),
   openGraph: {
     type: "website",
-    title: "CareerPath — AI-Powered Career Counseling",
+    title: "Margastra — AI-Powered Career Counseling",
     description:
       "Personalized career guidance powered by expert counselors and AI.",
-    siteName: "CareerPath",
+    siteName: "Margastra",
   },
 };
 

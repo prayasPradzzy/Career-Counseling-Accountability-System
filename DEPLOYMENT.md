@@ -1,4 +1,4 @@
-# Deployment Guide — CareerPath
+# Deployment Guide — Margastra
 
 This project is a monorepo with two deployable apps:
 
@@ -45,7 +45,7 @@ Known non-blocking lint state: ESLint reports 22 errors / 10 warnings across the
 |---|---|
 | `NEXT_PUBLIC_API_URL` | Your Render URL **including `/api/v1`**, e.g. `https://your-app.onrender.com/api/v1` |
 | `NEXT_PUBLIC_APP_URL` | Your Vercel URL, e.g. `https://your-app.vercel.app` (canonical/OG URLs) |
-| `NEXT_PUBLIC_APP_NAME` | `CareerPath` |
+| `NEXT_PUBLIC_APP_NAME` | `Margastra` |
 
 > `NEXT_PUBLIC_*` vars are inlined into the client bundle at **build time** — set them in Vercel before/at deploy.
 

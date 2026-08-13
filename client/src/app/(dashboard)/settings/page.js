@@ -130,7 +130,7 @@ export default function SettingsPage() {
         <TabsContent value="appearance" className="space-y-4">
           <FormSection
             title="Appearance & Theme"
-            description="Customize how CareerPath looks on your device."
+            description="Customize how Margastra looks on your device."
           >
             <div className="space-y-2 max-w-sm">
               <Label htmlFor="theme-select">Theme Preference</Label>

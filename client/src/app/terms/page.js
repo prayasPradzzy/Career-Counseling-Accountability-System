@@ -4,17 +4,17 @@ export const metadata = {
   title: "Terms of Service",
 };
 
-const SUPPORT_EMAIL = "support@careerpath.app";
+const SUPPORT_EMAIL = "support@margastra.app";
 const LAST_UPDATED = "August 11, 2026";
 
 const SECTIONS = [
   {
     title: "1. Acceptance of Terms",
-    body: "By accessing or using CareerPath, you agree to be bound by these Terms of Service and to comply with all applicable laws. If you do not agree with any part of these Terms, please do not use the platform.",
+    body: "By accessing or using Margastra, you agree to be bound by these Terms of Service and to comply with all applicable laws. If you do not agree with any part of these Terms, please do not use the platform.",
   },
   {
     title: "2. Accounts & Eligibility",
-    body: "You must be at least 13 years old to use CareerPath. You are responsible for maintaining the confidentiality of your account credentials and for all activity that occurs under your account. You agree to provide accurate, current information when registering and to update it as needed.",
+    body: "You must be at least 13 years old to use Margastra. You are responsible for maintaining the confidentiality of your account credentials and for all activity that occurs under your account. You agree to provide accurate, current information when registering and to update it as needed.",
   },
   {
     title: "3. Acceptable Use",
@@ -28,11 +28,11 @@ const SECTIONS = [
   },
   {
     title: "4. Assessments & Results",
-    body: "CareerPath provides career assessments and informational guidance. Assessment results are generated for educational purposes only and do not constitute professional career counseling, psychological evaluation, or employment decisions. You are responsible for how you interpret and act on the information you receive.",
+    body: "Margastra provides career assessments and informational guidance. Assessment results are generated for educational purposes only and do not constitute professional career counseling, psychological evaluation, or employment decisions. You are responsible for how you interpret and act on the information you receive.",
   },
   {
     title: "5. Intellectual Property",
-    body: "The platform, including its content, branding, software, and design, is owned by CareerPath and protected by applicable intellectual property laws. You may not copy, modify, distribute, or create derivative works from any part of the platform without prior written permission.",
+    body: "The platform, including its content, branding, software, and design, is owned by Margastra and protected by applicable intellectual property laws. You may not copy, modify, distribute, or create derivative works from any part of the platform without prior written permission.",
   },
   {
     title: "6. Disclaimer of Warranties",
@@ -40,7 +40,7 @@ const SECTIONS = [
   },
   {
     title: "7. Limitation of Liability",
-    body: "To the maximum extent permitted by law, CareerPath shall not be liable for any indirect, incidental, special, or consequential damages, including loss of data, profits, or opportunity, arising from your use of or inability to use the platform.",
+    body: "To the maximum extent permitted by law, Margastra shall not be liable for any indirect, incidental, special, or consequential damages, including loss of data, profits, or opportunity, arising from your use of or inability to use the platform.",
   },
   {
     title: "8. Changes to These Terms",
@@ -61,7 +61,7 @@ export default function TermsPage() {
           href="/"
           className="text-sm font-medium text-muted-foreground underline-offset-4 transition-colors hover:text-foreground hover:underline"
         >
-          ← Back to CareerPath
+          ← Back to Margastra
         </Link>
         <h1 className="mt-4 text-3xl font-bold tracking-tight">Terms of Service</h1>
         <p className="mt-1 text-sm text-muted-foreground">Last updated: {LAST_UPDATED}</p>

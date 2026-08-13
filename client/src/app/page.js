@@ -10,7 +10,7 @@
 import Link from "next/link";
 
 export const metadata = {
-  title: "CareerPath — AI-Powered Career Counseling",
+  title: "Margastra — AI-Powered Career Counseling",
 };
 
 export default function HomePage() {
@@ -21,9 +21,9 @@ export default function HomePage() {
         {/* Brand */}
         <div className="flex items-center justify-center gap-2 mb-8">
           <span className="flex size-10 items-center justify-center rounded-xl bg-primary text-primary-foreground text-lg font-black shadow-lg">
-            C
+            M
           </span>
-          <span className="text-3xl font-bold tracking-tight">CareerPath</span>
+          <span className="text-3xl font-bold tracking-tight">Margastra</span>
         </div>
 
         <h1 className="text-4xl md:text-5xl font-bold tracking-tight text-foreground leading-tight">

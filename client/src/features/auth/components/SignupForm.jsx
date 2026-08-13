@@ -86,7 +86,7 @@ export function SignupForm() {
           Create an account
         </CardTitle>
         <CardDescription>
-          Enter your details to register for CareerPath
+          Enter your details to register for Margastra
         </CardDescription>
       </CardHeader>
       <CardContent>

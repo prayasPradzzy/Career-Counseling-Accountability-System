@@ -16,7 +16,7 @@ import Link from "next/link";
 export const metadata = {
   title: {
     default: "Sign In",
-    template: "%s | CareerPath",
+    template: "%s | Margastra",
   },
 };
 
@@ -31,9 +31,9 @@ export default function AuthLayout({ children }) {
         >
           {/* Logomark — a simple geometric accent */}
           <span className="flex size-8 items-center justify-center rounded-lg bg-primary text-primary-foreground text-sm font-black">
-            C
+            M
           </span>
-          CareerPath
+          Margastra
         </Link>
         <p className="mt-1.5 text-sm text-muted-foreground">
           Your AI-powered career guidance platform

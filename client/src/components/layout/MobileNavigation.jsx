@@ -37,10 +37,10 @@ export function MobileNavigation({ open, onOpenChange }) {
         <SheetHeader className="h-16 border-b border-border px-6 flex items-center justify-start">
           <SheetTitle className="flex items-center gap-2 text-left">
             <span className="flex size-7 items-center justify-center rounded-md bg-primary text-primary-foreground text-xs font-black">
-              C
+              M
             </span>
             <span className="font-bold tracking-tight text-foreground text-base">
-              CareerPath
+              Margastra
             </span>
           </SheetTitle>
         </SheetHeader>

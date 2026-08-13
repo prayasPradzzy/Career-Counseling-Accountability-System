@@ -1,4 +1,4 @@
-# Career Counseling Platform — Project Memory & Architecture Log
+# Margastra — Project Memory & Architecture Log
 
 ## Project Status
 

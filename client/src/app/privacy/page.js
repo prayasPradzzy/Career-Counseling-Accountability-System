@@ -4,13 +4,13 @@ export const metadata = {
   title: "Privacy Policy",
 };
 
-const SUPPORT_EMAIL = "support@careerpath.app";
+const SUPPORT_EMAIL = "support@margastra.app";
 const LAST_UPDATED = "August 11, 2026";
 
 const SECTIONS = [
   {
     title: "1. Information We Collect",
-    body: "We collect information you provide directly when using CareerPath, including:",
+    body: "We collect information you provide directly when using Margastra, including:",
     list: [
       "Account details — your name, email address, and role (student or counselor)",
       "Invite codes and counselor–student relationships established to connect you with a counselor",
@@ -59,7 +59,7 @@ export default function PrivacyPage() {
           href="/"
           className="text-sm font-medium text-muted-foreground underline-offset-4 transition-colors hover:text-foreground hover:underline"
         >
-          ← Back to CareerPath
+          ← Back to Margastra
         </Link>
         <h1 className="mt-4 text-3xl font-bold tracking-tight">Privacy Policy</h1>
         <p className="mt-1 text-sm text-muted-foreground">Last updated: {LAST_UPDATED}</p>
@@ -78,7 +78,7 @@ export default function PrivacyPage() {
               {section.mailto && (
                 <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
                   <a
-                    href={`mailto:${SUPPORT_EMAIL}?subject=${encodeURIComponent("Privacy question about CareerPath")}`}
+                    href={`mailto:${SUPPORT_EMAIL}?subject=${encodeURIComponent("Privacy question about Margastra")}`}
                     className="font-medium text-foreground underline underline-offset-4 transition-colors hover:text-primary"
                   >
                     {SUPPORT_EMAIL}

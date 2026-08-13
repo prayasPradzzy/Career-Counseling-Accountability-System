@@ -4,7 +4,7 @@ import { AppLayout } from "@/components/layout/AppLayout";
 export const metadata = {
   title: {
     default: "Dashboard",
-    template: "%s | CareerPath",
+    template: "%s | Margastra",
   },
 };
 

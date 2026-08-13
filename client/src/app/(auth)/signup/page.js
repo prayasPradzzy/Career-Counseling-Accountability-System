@@ -5,7 +5,7 @@ import { Loader2 } from "lucide-react";
 
 export const metadata = {
   title: "Sign Up",
-  description: "Create a new CareerPath account",
+  description: "Create a new Margastra account",
 };
 
 export default function SignupPage() {
