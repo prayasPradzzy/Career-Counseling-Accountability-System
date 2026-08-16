@@ -123,8 +123,13 @@ const consentSchema = z.object({
     id: z.string(),
   }),
   body: z.object({
-    isGiven: z.boolean(),
+    isGiven: z.boolean().optional(),
     consentFormUrl: z.string().optional(),
+    audioRecording: z
+      .object({
+        isGiven: z.boolean(),
+      })
+      .optional(),
   }),
 });
 

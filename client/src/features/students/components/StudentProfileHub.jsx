@@ -4,6 +4,8 @@ import { useState } from "react";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { OverviewSection } from "./sections/OverviewSection";
 import { AssessmentHistorySection } from "./sections/AssessmentHistorySection";
+import { ConsentCard } from "./ConsentCard";
+import { InterviewTab } from "@/features/interviews/components/InterviewTab";
 import { InfoCard } from "@/components/common/InfoCard";
 import { GuardianCard } from "./GuardianCard";
 import { SectionCard } from "@/components/common/SectionCard";
@@ -19,6 +21,7 @@ import {
   Users,
   UserCheck,
   Award,
+  MessagesSquare,
 } from "lucide-react";
 
 import { TransferOwnershipDialog } from "./TransferOwnershipDialog";
@@ -33,6 +36,8 @@ export function StudentProfileHub({
   profile,
   onToggleConsent,
   isUpdatingConsent = false,
+  onToggleAudioConsent,
+  isUpdatingAudioConsent = false,
 }) {
   const [activeTab, setActiveTab] = useState("overview");
   const [assignAssessmentOpen, setAssignAssessmentOpen] = useState(false);
@@ -121,16 +126,32 @@ export function StudentProfileHub({
               <Award className="size-3.5" />
               Assessments & Scores
             </TabsTrigger>
+            {isCounselorOrAdmin && (
+              <TabsTrigger value="interview" className="text-xs gap-1.5 px-3">
+                <MessagesSquare className="size-3.5" />
+                Interview
+              </TabsTrigger>
+            )}
           </TabsList>
         </div>
 
         {/* 1. Overview Hub Tab */}
-        <TabsContent value="overview" className="mt-4">
+        <TabsContent value="overview" className="mt-4 space-y-6">
           <OverviewSection
             profile={profile}
             onTransferOwnership={isAdmin ? () => setTransferOwnershipOpen(true) : undefined}
             isAdmin={isAdmin}
           />
+          {/* Consent (incl. audio-recording consent required before interview recording) */}
+          {isCounselorOrAdmin && (
+            <ConsentCard
+              consentStatus={profile?.consentStatus}
+              onUpdateConsent={onToggleConsent}
+              isUpdating={isUpdatingConsent}
+              onToggleAudioConsent={onToggleAudioConsent}
+              isUpdatingAudioConsent={isUpdatingAudioConsent}
+            />
+          )}
         </TabsContent>
 
         {/* 2. Personal Information Tab */}
@@ -241,6 +262,15 @@ export function StudentProfileHub({
           />
         </TabsContent>
 
+        {/* 7. Interview Tab — AI-Assisted Interview Question Generation */}
+        {isCounselorOrAdmin && (
+          <TabsContent value="interview" className="mt-4 space-y-6">
+            <InterviewTab
+              studentId={studentUserId}
+              audioConsentGiven={Boolean(profile?.consentStatus?.audioRecording?.isGiven)}
+            />
+          </TabsContent>
+        )}
 
       </Tabs>
 

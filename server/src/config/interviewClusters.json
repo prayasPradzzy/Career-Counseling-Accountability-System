@@ -1,0 +1,34 @@
+{
+  "clusters": [
+    {
+      "code": "motivation_drive",
+      "name": "Motivation & Drive",
+      "constructs": ["Motivation", "Self-Efficacy", "Need for Achievement", "Growth Mindset"]
+    },
+    {
+      "code": "identity_direction",
+      "name": "Identity & Direction",
+      "constructs": ["Identity", "Vocational Identity", "Calling Orientation"]
+    },
+    {
+      "code": "cognitive_decision",
+      "name": "Cognitive & Decision Style",
+      "constructs": ["Decision-Making Style", "Executive Function", "Learning Style", "Metacognition", "Need for Cognition"]
+    },
+    {
+      "code": "social_relational",
+      "name": "Social & Relational",
+      "constructs": ["Interpersonal Style", "Attachment Style", "Leadership Potential"]
+    },
+    {
+      "code": "emotional_adaptive",
+      "name": "Emotional & Adaptive Capacity",
+      "constructs": ["Emotional Factors", "Wellbeing", "Adaptability", "Tolerance for Uncertainty"]
+    },
+    {
+      "code": "future_initiative",
+      "name": "Future & Initiative Orientation",
+      "constructs": ["Future Time Perspective", "Entrepreneurial Orientation", "Creativity & Divergent Thinking", "Locus of Control"]
+    }
+  ]
+}

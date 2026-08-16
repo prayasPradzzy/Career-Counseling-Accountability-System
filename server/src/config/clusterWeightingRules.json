@@ -1,0 +1,19 @@
+{
+  "rules": [
+    { "assessmentKey": "ipip-neo-120", "domain": "N", "condition": "band === 'High'", "boost": ["emotional_adaptive"] },
+    { "assessmentKey": "ipip-neo-120", "domain": "C", "condition": "band === 'High' || band === 'Low'", "boost": ["motivation_drive", "cognitive_decision"] },
+    { "assessmentKey": "ipip-neo-120", "domain": "O", "condition": "band === 'High'", "boost": ["future_initiative", "cognitive_decision"] },
+    { "assessmentKey": "ipip-neo-120", "domain": "E", "condition": "band === 'High' || band === 'Low'", "boost": ["social_relational"] },
+    { "assessmentKey": "ipip-neo-120", "domain": "A", "condition": "band === 'Low'", "boost": ["social_relational"] },
+    { "assessmentKey": "onet-work-importance-locator", "workValue": "achievement", "condition": "isTopTwo", "boost": ["motivation_drive"] },
+    { "assessmentKey": "onet-work-importance-locator", "workValue": "independence", "condition": "isTopTwo", "boost": ["future_initiative", "cognitive_decision"] },
+    { "assessmentKey": "onet-work-importance-locator", "workValue": "relationships", "condition": "isTopTwo", "boost": ["social_relational"] },
+    { "assessmentKey": "onet-work-importance-locator", "workValue": "support", "condition": "isTopTwo", "boost": ["social_relational"] },
+    { "assessmentKey": "onet-work-importance-locator", "workValue": "recognition", "condition": "isTopTwo", "boost": ["identity_direction"] },
+    { "assessmentKey": "onet-work-importance-locator", "workValue": "workingConditions", "condition": "isTopTwo", "boost": ["emotional_adaptive"] },
+    { "assessmentKey": "onet-interest-profiler-short", "category": "S", "condition": "isInHollandCode", "boost": ["social_relational"] },
+    { "assessmentKey": "onet-interest-profiler-short", "category": "E", "condition": "isInHollandCode", "boost": ["future_initiative"] },
+    { "assessmentKey": "onet-interest-profiler-short", "category": "I", "condition": "isInHollandCode", "boost": ["cognitive_decision"] },
+    { "assessmentKey": "onet-interest-profiler-short", "category": "A", "condition": "isInHollandCode", "boost": ["future_initiative"] }
+  ]
+}

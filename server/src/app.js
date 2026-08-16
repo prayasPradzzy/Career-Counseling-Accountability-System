@@ -98,6 +98,8 @@ const assessmentAssignmentRoutes = require("./modules/assessments/assessmentAssi
 const assessmentSessionRoutes = require("./modules/assessments/assessmentSession.routes");
 const assessmentDefinitionRoutes = require("./modules/assessments/assessmentDefinition.routes");
 const notificationRoutes = require("./modules/notifications/notification.routes");
+const interviewEngagementRoutes = require("./modules/interviews/interviewEngagement.routes");
+const { publicRouter: interviewAudioStreamRouter } = interviewEngagementRoutes;
 const errorHandler = require("./shared/middleware/error.middleware");
 
 // ============================================================
@@ -121,6 +123,12 @@ app.use("/api/v1/auth", authRoutes);
 app.use("/api/v1/clients", clientRoutes);
 app.use("/api/v1/profile", profileRoutes);
 app.use("/api/profile", profileRoutes);
+// Public signed-playback audio stream (no auth — the signed URL token is
+// the access control). Mounted at its own namespace BEFORE the counselor
+// router, whose router-level requireAuth would otherwise 401 it.
+app.use("/api/v1/interview-audio", interviewAudioStreamRouter);
+app.use("/api/interview-audio", interviewAudioStreamRouter);
+
 app.use("/api/v1/counselor", counselorRoutes);
 app.use("/api/counselor", counselorRoutes);
 app.use("/api/v1/counselors", counselorRoutes);
@@ -129,6 +137,8 @@ app.use("/api/v1/admin", adminRoutes);
 app.use("/api/admin", adminRoutes);
 app.use("/api/v1/notifications", notificationRoutes);
 app.use("/api/notifications", notificationRoutes);
+app.use("/api/v1/counselor", interviewEngagementRoutes);
+app.use("/api/counselor", interviewEngagementRoutes);
 app.use("/api/v1/assessment-definitions", assessmentDefinitionRoutes);
 app.use("/api/v1/assessments/sessions", assessmentSessionRoutes);
 app.use("/api/assessments/sessions", assessmentSessionRoutes);

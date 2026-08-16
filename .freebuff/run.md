@@ -25,6 +25,10 @@ The DB seed data (IPIP-NEO-120, O*NET Interest Profiler, O*NET WIL) already
 lives in Atlas. To re-seed: `cd server && npm run seed:ipip` (plus the
 interest-profiler / WIL seeders in `src/database/`).
 
+The interview question generator needs its two PromptTemplate documents
+seeded once: `cd server && node src/database/seed-interview-prompts.js`
+(upserts, safe to re-run).
+
 ## Run the server
 
 1. API (detached, so it outlives the conversation):
@@ -64,3 +68,43 @@ not-started states — so the Assessment Library shows real aggregates:
 ```bash
 cd server && node scripts/setupPreviewDemo.js
 ```
+
+`server/scripts/testInterviewFlow.js` verifies the interview question
+workflow end-to-end (priority mapping + full API flow) with fabricated
+high-Neuroticism scores, then cleans up after itself.
+
+`server/scripts/testInterviewPhase2.js` verifies Phase 2 (session
+conduction + recording): consent gate, GridFS storage, real-duration
+extraction, signed playback URL + range streaming, and the
+approved → in_progress → recorded → completed flow. Both tests clean up
+after themselves and require the API running on :5000.
+
+`server/scripts/testInterviewFixes.js` verifies (A) duplicate-cluster
+normalization — an LLM response listing the same cluster twice collapses to
+ONE entry with the deterministic priority and merged questions — and (D) Groq
+provider routing through the AI Services Layer (stubbed fetch, no real key).
+`server/scripts/setupInterviewHighDemo.js` fabricates a demo student
+(`interview.high.demo@example.com`) with High-priority cluster signals and a
+fresh approved question set for visual verification.
+
+## AI provider (Groq)
+
+The AI Services Layer (`server/src/modules/ai/ai.service.js`) is the only
+place that knows about providers. To use Groq (free tier, no card):
+
+1. Get a key at console.groq.com → API Keys.
+2. Set in `server/.env` (and on Render):
+   `LLM_PROVIDER=groq`, `GROQ_API_KEY=...`, `LLM_MODEL=llama-3.3-70b-versatile`.
+3. Nothing else changes — features call `aiService.generate()` and never see
+   the provider. The key's absence falls back to the deterministic generator.
+   (The same Groq account's Whisper endpoint can later serve Phase 3's
+   Hinglish transcription.) Free-tier rate limits (~30 req/min) are
+   org-wide, not per-key.
+
+Phase 2 audio notes: recordings live in a GridFS bucket named
+`audioAssets` (only a reference is stored in the `AudioAsset` collection);
+the public signed-playback stream is mounted at `/api/v1/interview-audio`
+(and `/api/interview-audio`) with NO auth — the HMAC-signed, expiring token
+in the URL is the access control. It is mounted at its own namespace so the
+counselor router's router-level `requireAuth` can never shadow it.
+

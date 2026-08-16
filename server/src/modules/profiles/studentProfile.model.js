@@ -83,6 +83,12 @@ const studentProfileSchema = new mongoose.Schema(
       isGiven: { type: Boolean, default: false },
       givenAt: { type: Date },
       consentFormUrl: { type: String, default: "" },
+      // Separate, explicit consent for recording audio during interview
+      // sessions — required before any recording/upload can happen.
+      audioRecording: {
+        isGiven: { type: Boolean, default: false },
+        givenAt: { type: Date },
+      },
     },
     status: {
       type: String,

@@ -471,7 +471,7 @@ class ClientService {
     profile.status = deriveStudentLifecycleStatus(profile, { completionPercentage: compAss });
     await profile.save();
 
-    const updated = await ClientProfile.findById(profile._id)
+    const updated = await StudentProfile.findById(profile._id)
       .populate("userId", "firstName lastName email role")
       .populate("assignedCounselorId", "firstName lastName email");
 
@@ -494,7 +494,7 @@ class ClientService {
    * Update Consent Status
    */
   async updateConsent(identifier, consentData, requestingUser) {
-    const profile = await ClientProfile.findOne({
+    const profile = await StudentProfile.findOne({
       $or: [{ _id: identifier }, { userId: identifier }],
       status: { $ne: "archived" },
     });
@@ -503,11 +503,26 @@ class ClientService {
       throw new ApiError(404, "Student profile not found");
     }
 
+    // Merge rather than replace so a patch to one consent type
+    // (e.g. audio recording) never wipes the other's state.
+    const current = profile.consentStatus || {};
     profile.consentStatus = {
-      isGiven: Boolean(consentData.isGiven),
-      givenAt: consentData.isGiven ? new Date() : null,
-      consentFormUrl: consentData.consentFormUrl || "",
+      ...current,
+      consentFormUrl: consentData.consentFormUrl || current.consentFormUrl || "",
     };
+
+    if (consentData.isGiven !== undefined) {
+      profile.consentStatus.isGiven = Boolean(consentData.isGiven);
+      profile.consentStatus.givenAt = consentData.isGiven ? new Date() : null;
+    }
+
+    if (consentData.audioRecording !== undefined) {
+      const nextAudioGiven = Boolean(consentData.audioRecording.isGiven);
+      profile.consentStatus.audioRecording = {
+        isGiven: nextAudioGiven,
+        givenAt: nextAudioGiven ? new Date() : null,
+      };
+    }
 
     await profile.save();
 

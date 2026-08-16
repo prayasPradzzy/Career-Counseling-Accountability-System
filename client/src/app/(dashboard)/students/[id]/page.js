@@ -46,6 +46,29 @@ export default function StudentDetailPage({ params: paramsPromise }) {
     );
   };
 
+  const handleToggleAudioConsent = () => {
+    const nextAudioGiven = !profile?.consentStatus?.audioRecording?.isGiven;
+
+    updateConsentMutation.mutate(
+      {
+        id: studentId,
+        consentData: { audioRecording: { isGiven: nextAudioGiven } },
+      },
+      {
+        onSuccess: () => {
+          toast.success(
+            nextAudioGiven
+              ? "Audio recording consent granted"
+              : "Audio recording consent revoked"
+          );
+        },
+        onError: (err) => {
+          toast.error(err.response?.data?.message || "Failed to update consent status");
+        },
+      }
+    );
+  };
+
   /* ── Loading State ── */
   if (isLoading) {
     return (
@@ -79,6 +102,8 @@ export default function StudentDetailPage({ params: paramsPromise }) {
         profile={profile}
         onToggleConsent={handleToggleConsent}
         isUpdatingConsent={updateConsentMutation.isPending}
+        onToggleAudioConsent={handleToggleAudioConsent}
+        isUpdatingAudioConsent={updateConsentMutation.isPending}
       />
     </div>
   );
