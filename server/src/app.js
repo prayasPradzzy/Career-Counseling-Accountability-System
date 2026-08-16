@@ -49,10 +49,23 @@ app.use(helmet());
 // silent CORS failures from a stray "/" or copy-paste case mismatch.
 const normalizeOrigin = (origin) => origin.trim().replace(/\/+$/, "").toLowerCase();
 
-const clientOrigins = (process.env.CLIENT_URL || "http://localhost:3000")
-  .split(",")
-  .map(normalizeOrigin)
-  .filter(Boolean);
+// Built-in production frontend origins — MERGED with CLIENT_URL so a frontend
+// domain switch (Vercel rename, custom domain like margastra.in) never silently
+// breaks login again even if the env var hasn't caught up. Keep this list in
+// sync with the real frontends; /api/v1/health reports the effective allowlist.
+const BUILTIN_ALLOWED_ORIGINS = [
+  "https://margastra.in",
+  "https://career-counseling-accountability-sy.vercel.app",
+  "https://career-counseling-accountability-system-1givrejev.vercel.app",
+];
+
+const clientOrigins = [
+  ...(process.env.CLIENT_URL || "http://localhost:3000")
+    .split(",")
+    .map(normalizeOrigin)
+    .filter(Boolean),
+  ...BUILTIN_ALLOWED_ORIGINS.map(normalizeOrigin),
+].filter((origin, i, arr) => arr.indexOf(origin) === i); // dedupe, keep order
 
 app.use(
   cors({
