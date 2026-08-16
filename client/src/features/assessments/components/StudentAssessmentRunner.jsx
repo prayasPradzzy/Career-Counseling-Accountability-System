@@ -30,7 +30,12 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 
-export default function StudentAssessmentRunner({ sessionId, onBack }) {
+export default function StudentAssessmentRunner({
+  sessionId,
+  onBack,
+  nextAssignment = null,
+  onContinueToNext,
+}) {
   const router = useRouter();
 
   // Queries & Mutations
@@ -251,7 +256,7 @@ export default function StudentAssessmentRunner({ sessionId, onBack }) {
               </Badge>
               <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
                 <Clock className="size-4 text-primary" />
-                <span>Est. {definition?.estimatedDuration || 20} mins</span>
+                <span>Est. ~{definition?.estimatedDuration || 5} min</span>
               </div>
             </div>
             <CardTitle className="text-2xl font-bold">{definition?.title || "IPIP-NEO-120 Assessment"}</CardTitle>
@@ -581,12 +586,16 @@ export default function StudentAssessmentRunner({ sessionId, onBack }) {
     definition?.code?.toLowerCase()?.replace(/_/g, "-") ||
     "ipip-neo-120";
 
+  const nextTitle = nextAssignment?.assessmentDefinitionId?.title || null;
+
   return (
     <StudentResultsViewer
       assessmentKey={assessmentKey}
       definitionTitle={definition?.title}
       completedAt={session?.submittedAt}
       onBack={onBack}
+      nextTitle={nextTitle}
+      onContinue={nextTitle ? onContinueToNext : undefined}
     />
   );
 }

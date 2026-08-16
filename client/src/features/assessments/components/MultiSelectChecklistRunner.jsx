@@ -98,13 +98,6 @@ export default function MultiSelectChecklistRunner({
     (v) => v === 1 || v === true
   ).length;
 
-  // ── Format time (MM:SS) for the footer ────────────────────────────────────
-  const formatTime = (seconds) => {
-    const mins = Math.floor(seconds / 60);
-    const secs = seconds % 60;
-    return `${mins}:${secs < 10 ? "0" : ""}${secs}`;
-  };
-
   // ── Autosave ──────────────────────────────────────────────────────────────
   const triggerAutosave = useCallback(
     (newAnswers) => {
@@ -217,18 +210,18 @@ export default function MultiSelectChecklistRunner({
         saveStatus={saveStatus}
         timeSpent={timeSpent}
         className="mb-6"
-      />
-
-      {/* ─── Instruction Banner ───────────────────────────────────────────── */}
-      <div className="mx-auto mb-6 p-4 rounded-xl border border-primary/20 bg-primary/5 text-center">
-        <p className="text-sm text-muted-foreground leading-relaxed">
-          <span className="font-semibold text-foreground">
-            Tap each activity you&apos;d enjoy doing.
-          </span>{" "}
-          There are no right or wrong answers — select as many or as few as
-          genuinely interest you.
-        </p>
-      </div>
+      >
+        {/* ─── Instruction strip — scroll-pins WITH the counter (sticky slot) ── */}
+        <div className="border-b border-primary/10 bg-primary/5 px-4 py-2.5 text-center">
+          <p className="text-xs text-muted-foreground leading-relaxed">
+            <span className="font-semibold text-foreground">
+              Tap each activity you&apos;d enjoy doing.
+            </span>{" "}
+            There are no right or wrong answers — select as many or as few as
+            genuinely interest you.
+          </p>
+        </div>
+      </AssessmentProgressHeader>
 
       {/* ─── Activity Cards Grid ──────────────────────────────────────────── */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
@@ -293,8 +286,7 @@ export default function MultiSelectChecklistRunner({
           <span className="font-semibold text-foreground tabular-nums">
             {selectedCount}
           </span>{" "}
-          of {totalQuestions} activities •{" "}
-          <span className="font-mono">{formatTime(timeSpent)}</span> elapsed
+          of {totalQuestions} activities
         </p>
 
         <Button

@@ -6,6 +6,12 @@ import api from "@/lib/api";
  * workflow (engagement → session → generated question set).
  */
 export const interviewService = {
+  /** Cross-student aggregate: library stats + roster (counselor only) */
+  async getInterviewsOverview() {
+    const response = await api.get(`/counselor/interviews/overview`);
+    return response.data;
+  },
+
   /** Get the active engagement (or null) + completed assessment count */
   async getStudentEngagement(studentId) {
     const response = await api.get(

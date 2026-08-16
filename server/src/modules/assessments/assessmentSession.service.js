@@ -503,9 +503,15 @@ class AssessmentSessionService {
     await session.save();
 
     // Trigger Strategy-Based Scoring Engine
+    // (Timed — scoring-feel-slow diagnosis: submission→score latency is logged
+    // so a regression in query patterns shows up in the API log.)
+    const scoringStartMs = Date.now();
     let scoreDoc = null;
     try {
       scoreDoc = await scoringEngine.calculateAndSaveScore(session._id);
+      console.log(
+        `[ScoringTiming] submitSession -> AssessmentScore ready for session ${session._id} in ${Date.now() - scoringStartMs}ms (def ${session.assessmentDefinitionId}, status ${session.status})`
+      );
     } catch (err) {
       console.error("SCORING ENGINE FAILURE:", err.message, err.stack);
       session.metadata = { ...(session.metadata || {}), scoringError: err.message, scoringFailedAt: new Date() };
@@ -514,13 +520,41 @@ class AssessmentSessionService {
     }
 
     // Update linked AssessmentAssignment to COMPLETED
+    let completedAssignment = null;
     if (session.assignmentId) {
       const assignment = await AssessmentAssignment.findById(session.assignmentId);
       if (assignment) {
         assignment.status = ASSIGNMENT_STATUS.COMPLETED;
         assignment.completedAt = now;
         await assignment.save();
+        completedAssignment = assignment;
       }
+    }
+
+    // Notify the student's counselor that an assessment was completed
+    try {
+      const Notification = require("./../notifications/notification.model");
+      const User = require("./../users/user.model");
+      let counselorId =
+        completedAssignment?.counselorId ||
+        (await StudentProfile.findOne({ userId: session.clientId }).select("assignedCounselorId"))?.assignedCounselorId;
+      if (counselorId) {
+        const studentUser = await User.findById(session.clientId).select("firstName lastName");
+        const studentName =
+          studentUser
+            ? `${studentUser.firstName || ""} ${studentUser.lastName || ""}`.trim()
+            : "A student";
+        const defTitle = definition?.title || "Assessment";
+        await Notification.create({
+          userId: counselorId,
+          title: "Assessment Completed",
+          message: `${studentName} completed ${defTitle}. Review the results when ready.`,
+          type: "assessment_completed",
+          link: completedAssignment ? `/assessments/review/${completedAssignment._id}` : `/assessments`,
+        });
+      }
+    } catch (notifErr) {
+      console.error("[Completion Notification Error]", notifErr.message);
     }
 
     // Update Student Profile Lifecycle Status

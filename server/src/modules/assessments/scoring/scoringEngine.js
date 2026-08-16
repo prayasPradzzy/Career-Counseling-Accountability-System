@@ -18,11 +18,18 @@ class ScoringEngine {
    * @returns {Object} Saved AssessmentScore document
    */
   async calculateAndSaveScore(sessionId) {
+    const t0 = Date.now();
+    const mark = (label) => {
+      console.log(`[ScoringTiming]   ${label}: ${Date.now() - t0}ms`);
+    };
+
     // 1. Fetch Session
     const session = await AssessmentSession.findById(sessionId);
     if (!session) {
       throw new ApiError(404, "Assessment session not found.");
     }
+
+    mark("session fetch");
 
     // 2. Fetch Definition with Fallback for Stale References
     let definition = await AssessmentDefinition.findById(session.assessmentDefinitionId);
@@ -33,6 +40,8 @@ class ScoringEngine {
     if (!definition) {
       throw new ApiError(404, "Assessment definition not found.");
     }
+
+    mark("definition fetch");
 
     // 3. Fetch Questions with Fallback
     let questions = await AssessmentQuestion.find({
@@ -46,6 +55,8 @@ class ScoringEngine {
     if (!questions || questions.length === 0) {
       throw new ApiError(400, "No questions found for this assessment definition.");
     }
+
+    mark("questions fetch (1 batch)");
 
     // 4. Fetch Raw Responses
     // Checkbox assessments (e.g. O*NET Interest Profiler) may legitimately have
@@ -62,17 +73,22 @@ class ScoringEngine {
       throw new ApiError(400, "No responses found for this assessment session.");
     }
 
+    mark("responses fetch");
+
     // 5. Resolve Scoring Strategy via Registry
     const strategyName = definition.scoringStrategy || (definition.code === "IPIP_NEO_120" ? "ipip_neo_120" : "likert_sum");
     const strategy = scoringRegistry.getStrategy(strategyName);
 
-    // 6. Execute Strategy Pipeline
+    // 6. Execute Strategy Pipeline (pure math on already-fetched data — no DB
+    //    queries inside strategies, so no N+1 by construction)
     const scorePayload = await strategy.calculateScore({
       session,
       definition,
       questions,
       responseDoc,
     });
+
+    mark("strategy math");
 
     // 7. Check for existing score to handle versioning / re-scoring
     let existingScore = await AssessmentScore.findOne({ sessionId: session._id }).sort({ version: -1 });
@@ -81,6 +97,8 @@ class ScoringEngine {
     if (existingScore) {
       version = existingScore.version + 1;
     }
+
+    mark("existing-score check");
 
     // 8. Create or Update AssessmentScore document
     const scoreDoc = await AssessmentScore.create({
@@ -107,6 +125,11 @@ class ScoringEngine {
       computedAt: new Date(),
       metadata: scorePayload.metadata || {},
     });
+
+    mark("score document write");
+    console.log(
+      `[ScoringTiming] calculateAndSaveScore total: ${Date.now() - t0}ms (strategy ${strategyName}, ${questions.length} questions)`
+    );
 
     return scoreDoc;
   }

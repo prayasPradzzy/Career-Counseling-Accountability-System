@@ -56,6 +56,95 @@ async function findOwnedSession(sessionId, user) {
   return session;
 }
 
+// ── GET /api/counselor/interviews/overview ────────────────────────────────
+// Cross-student aggregate for the Interviews section (Library + Roster).
+// Counselor-scoped: only the counselor's own active engagements are counted.
+const getInterviewsOverview = catchAsync(async (req, res) => {
+  const isAdmin = req.user.role === "admin";
+
+  // Engagements: counselors see their own; admins see all active ones.
+  const engagementQuery = isAdmin
+    ? { status: "active" }
+    : { counselorId: req.user._id, status: "active" };
+  const engagements = await InterviewEngagement.find(engagementQuery)
+    .populate("studentId", "firstName lastName email")
+    .populate("counselorId", "firstName lastName email")
+    .sort({ updatedAt: -1 });
+
+  const engagementIds = engagements.map((e) => e._id);
+  const sessions = engagementIds.length
+    ? await InterviewSession.find({ engagementId: { $in: engagementIds } }).sort({
+        createdAt: -1,
+      })
+    : [];
+
+  const sessionsByEngagement = new Map();
+  for (const s of sessions) {
+    const key = s.engagementId.toString();
+    if (!sessionsByEngagement.has(key)) {
+      sessionsByEngagement.set(key, []);
+    }
+    sessionsByEngagement.get(key).push(s);
+  }
+
+  // Library-level aggregates across the whole caseload
+  let sessionsAwaitingApproval = 0;
+  let sessionsRecorded = 0;
+  let sessionsCompleted = 0;
+  for (const s of sessions) {
+    if (s.status === SESSION_STATUS.QUESTIONS_GENERATED) sessionsAwaitingApproval++;
+    if (s.status === SESSION_STATUS.RECORDED) sessionsRecorded++;
+    if (s.status === SESSION_STATUS.COMPLETED) sessionsCompleted++;
+  }
+
+  const roster = engagements.map((engagement) => {
+    const student = engagement.studentId || {};
+    const engSessions = sessionsByEngagement.get(engagement._id.toString()) || [];
+
+    const counts = {
+      total: engSessions.length,
+      notStarted: 0,
+      awaitingApproval: 0,
+      approved: 0,
+      inProgress: 0,
+      recorded: 0,
+      completed: 0,
+    };
+    for (const s of engSessions) {
+      if (s.status === SESSION_STATUS.NOT_STARTED) counts.notStarted++;
+      if (s.status === SESSION_STATUS.QUESTIONS_GENERATED) counts.awaitingApproval++;
+      if (s.status === SESSION_STATUS.APPROVED) counts.approved++;
+      if (s.status === SESSION_STATUS.IN_PROGRESS) counts.inProgress++;
+      if (s.status === SESSION_STATUS.RECORDED) counts.recorded++;
+      if (s.status === SESSION_STATUS.COMPLETED) counts.completed++;
+    }
+
+    return {
+      studentId: student._id || engagement.studentId,
+      studentName: `${student.firstName || ""} ${student.lastName || ""}`.trim() || "Unnamed Student",
+      studentEmail: student.email || "",
+      engagementId: engagement._id,
+      engagementStatus: engagement.status,
+      updatedAt: engagement.updatedAt,
+      sessionCounts: counts,
+      latestSession: engSessions[0] || null,
+    };
+  });
+
+  res.status(200).json({
+    status: "success",
+    data: {
+      stats: {
+        engagementsStarted: engagements.length,
+        sessionsAwaitingApproval,
+        sessionsRecorded,
+        sessionsCompleted,
+      },
+      roster,
+    },
+  });
+});
+
 // ── GET /api/counselor/students/:studentId/interview-engagement ───────────
 // Returns the active engagement (or null) plus how many completed
 // assessments the student has, so the UI can gate generation.
@@ -266,6 +355,29 @@ const uploadAudio = catchAsync(async (req, res) => {
     uploadedBy: req.user._id,
   });
 
+  // Notify the engagement's counselor that a session recording is complete
+  // (recorded = ready to be finished out / reviewed).
+  try {
+    const Notification = require("../notifications/notification.model");
+    const engagement = await InterviewEngagement.findById(session.engagementId);
+    if (engagement && engagement.counselorId) {
+      const User = require("../users/user.model");
+      const studentUser = await User.findById(engagement.studentId).select("firstName lastName");
+      const studentName = studentUser
+        ? `${studentUser.firstName || ""} ${studentUser.lastName || ""}`.trim()
+        : "The student";
+      await Notification.create({
+        userId: engagement.counselorId,
+        title: "Interview Recording Complete",
+        message: `${studentName}'s ${session.sessionType} session recording is ready. Complete the session when reviewed.`,
+        type: "interview_recorded",
+        link: `/students/${engagement.studentId}`,
+      });
+    }
+  } catch (notifErr) {
+    console.error("[Interview Recording Notification Error]", notifErr.message);
+  }
+
   res.status(201).json({
     status: "success",
     data: { asset, session: updatedSession },
@@ -391,6 +503,7 @@ const completeSession = catchAsync(async (req, res) => {
 });
 
 module.exports = {
+  getInterviewsOverview,
   getStudentEngagement,
   startEngagement,
   createSession,

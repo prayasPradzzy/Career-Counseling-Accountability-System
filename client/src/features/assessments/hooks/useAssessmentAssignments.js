@@ -36,6 +36,20 @@ export function useAssignAssessment() {
   });
 }
 
+export function useAssignAllAssessments() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (studentId) => assessmentAssignmentService.assignAllAssessments(studentId),
+    onSuccess: (_res, studentId) => {
+      queryClient.invalidateQueries({ queryKey: ASSIGNMENT_KEYS.all });
+      if (studentId) {
+        queryClient.invalidateQueries({ queryKey: ASSIGNMENT_KEYS.student(studentId) });
+      }
+    },
+  });
+}
+
 export function useStartAssignment() {
   const queryClient = useQueryClient();
 

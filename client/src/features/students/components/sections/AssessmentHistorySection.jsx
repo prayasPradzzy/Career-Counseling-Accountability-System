@@ -23,7 +23,7 @@ import {
  * Displays all assigned assessments with unified status, progress bar, and action buttons.
  * No separate bottom scores registry — results live directly inside each assessment card.
  */
-export function AssessmentHistorySection({ assignments = [], onAssignAssessment }) {
+export function AssessmentHistorySection({ assignments = [], onAssignAssessment, onAssignAll, isAssigningAll = false }) {
   const router = useRouter();
 
   return (
@@ -33,16 +33,36 @@ export function AssessmentHistorySection({ assignments = [], onAssignAssessment 
         subtitle="Psychometric, interest, and aptitude assessment suite"
         iconName="BookOpen"
         action={
-          onAssignAssessment && (
-            <Button
-              variant="outline"
-              size="sm"
-              className="text-xs gap-1.5"
-              onClick={onAssignAssessment}
-            >
-              <BookOpen className="size-3.5" />
-              Assign Assessment
-            </Button>
+          (onAssignAssessment || onAssignAll) && (
+            <div className="flex items-center gap-2 flex-wrap">
+              {onAssignAll && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="text-xs gap-1.5"
+                  onClick={onAssignAll}
+                  disabled={isAssigningAll}
+                >
+                  {isAssigningAll ? (
+                    <Loader2 className="size-3.5 animate-spin" />
+                  ) : (
+                    <BookOpen className="size-3.5" />
+                  )}
+                  Assign Full Battery
+                </Button>
+              )}
+              {onAssignAssessment && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="text-xs gap-1.5"
+                  onClick={onAssignAssessment}
+                >
+                  <BookOpen className="size-3.5" />
+                  Assign Assessment
+                </Button>
+              )}
+            </div>
           )
         }
       >
@@ -59,7 +79,7 @@ export function AssessmentHistorySection({ assignments = [], onAssignAssessment 
               const definition = item.assessmentDefinitionId || {};
               const title = definition.title || "Career Assessment";
               const category = definition.category || item.category || "General";
-              const estimatedDuration = definition.estimatedDuration || 20;
+              const estimatedDuration = definition.estimatedDuration || 5;
 
               const assignedDate = item.assignedAt
                 ? new Date(item.assignedAt).toLocaleDateString("en-US", {

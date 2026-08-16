@@ -37,6 +37,7 @@ import {
   HeartHandshake,
   ShieldCheck,
   Mic,
+  MessagesSquare,
 } from "lucide-react";
 
 /**
@@ -83,6 +84,7 @@ const ICON_MAP = {
   HeartHandshake,
   ShieldCheck,
   Mic,
+  MessagesSquare,
 };
 
 /**

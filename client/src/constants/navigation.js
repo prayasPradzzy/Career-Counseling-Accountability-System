@@ -39,6 +39,14 @@ export const NAV_ITEMS = [
     iconName: "BookOpen",
     allowedRoles: [ROLES.STUDENT, ROLES.COUNSELOR, ROLES.ADMIN],
   },
+  // 4b. Interviews (Counselor, Admin) — sits right after Assessments
+  {
+    id: "interviews",
+    label: "Interviews",
+    href: ROUTES.INTERVIEWS,
+    iconName: "MessagesSquare",
+    allowedRoles: [ROLES.COUNSELOR, ROLES.ADMIN],
+  },
   // 5. User Profile (All Roles)
   {
     id: "profile",

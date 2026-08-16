@@ -3,10 +3,20 @@ import { interviewService } from "@/services/interview.service";
 
 export const interviewKeys = {
   all: ["interviews"],
+  overview: () => [...interviewKeys.all, "overview"],
   engagement: (studentId) => [...interviewKeys.all, "engagement", studentId],
   questionSet: (sessionId) => [...interviewKeys.all, "questionSet", sessionId],
   audio: (sessionId) => [...interviewKeys.all, "audio", sessionId],
 };
+
+/** Fetch the cross-student Interviews overview (library stats + roster) */
+export function useInterviewsOverview() {
+  return useQuery({
+    queryKey: interviewKeys.overview(),
+    queryFn: () => interviewService.getInterviewsOverview(),
+    staleTime: 1000 * 60 * 2,
+  });
+}
 
 /** Fetch the active engagement + completed assessment count for a student */
 export function useInterviewEngagement(studentId) {

@@ -380,30 +380,50 @@ class ClientService {
       throw new ApiError(404, "Student profile not found");
     }
 
-    // RBAC Check
-    if (
-      requestingUser.role === "student" &&
-      profile.userId &&
-      profile.userId.toString() !== requestingUser._id.toString()
-    ) {
-      throw new ApiError(403, "Access denied. You can only update your own profile.");
+    // RBAC Check: student can only update their own profile; counselor can
+    // only update their OWN assigned students (this check was missing — a
+    // counselor could previously PUT any student's profile, the same
+    // cross-account scoping bug class that has bitten other direct-by-ID
+    // endpoints). Admins bypass both checks.
+    if (requestingUser.role === "student") {
+      if (
+        profile.userId &&
+        profile.userId.toString() !== requestingUser._id.toString()
+      ) {
+        throw new ApiError(403, "Access denied. You can only update your own profile.");
+      }
+    } else if (requestingUser.role === "counselor") {
+      const isAuthorized = canCounselorAccessStudent(requestingUser._id, profile.userId, profile);
+      if (!isAuthorized) {
+        throw new ApiError(403, "Access denied: You can only update profiles for your own assigned students.");
+      }
     }
 
     const allowedUpdates = [
       "phone",
       "dateOfBirth",
       "gender",
+      "location",
       "education",
       "careerGoals",
       "targetIndustries",
       "skills",
       "languages",
       "guardianInfo",
+      "currentGradeYear",
+      "isFirstGenerationLearner",
+      "learningDifference",
     ];
 
     allowedUpdates.forEach((field) => {
       if (updateData[field] !== undefined) {
-        profile[field] = updateData[field];
+        // Sensitive optional fields must stay genuinely optional: blank strings
+        // clear them, and null is respected for the yes/no first-gen toggle.
+        if (field === "learningDifference" && updateData[field] === null) {
+          profile[field] = "";
+        } else {
+          profile[field] = updateData[field];
+        }
       }
     });
 

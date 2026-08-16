@@ -48,7 +48,7 @@ const seedIpipNeo120 = async () => {
       category: "personality",
       description: "120-item IPIP representation of the Revised NEO Personality Inventory measuring the Five-Factor Model of Personality.",
       instructions: "Please rate how accurately each statement describes you.",
-      estimatedDuration: 20,
+      estimatedDuration: 5,
       version: 1,
       status: "active",
       scoringStrategy: "ipip_neo_120",

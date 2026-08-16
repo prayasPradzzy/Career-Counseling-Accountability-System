@@ -8,9 +8,15 @@ import { Button } from "@/components/ui/button";
 import { UserMenu } from "./UserMenu";
 import { MobileNavigation } from "./MobileNavigation";
 import { Breadcrumbs } from "./Breadcrumbs";
+import { useNotifications } from "@/features/notifications/hooks/useNotifications";
 
 export function DashboardTopbar() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+
+  // Real unread count — the bell shows an actual number, not a static dot.
+  const { data } = useNotifications();
+  const notifications = data?.data?.data || data?.data || [];
+  const unreadCount = notifications.filter((n) => !n.read).length;
 
   return (
     <>
@@ -48,14 +54,18 @@ export function DashboardTopbar() {
           <Button
             variant="ghost"
             size="icon"
-            aria-label="View notifications"
+            aria-label={`View notifications${unreadCount > 0 ? ` (${unreadCount} unread)` : ""}`}
             id="topbar-notifications-button"
             className="relative"
             asChild
           >
             <Link href={ROUTES.NOTIFICATIONS}>
               <Bell className="size-5" />
-              <span className="absolute top-1.5 right-1.5 size-2 rounded-full bg-destructive" />
+              {unreadCount > 0 && (
+                <span className="absolute -top-0.5 -right-0.5 flex items-center justify-center min-w-[16px] h-4 rounded-full bg-destructive text-primary-foreground text-[9px] font-bold px-1">
+                  {unreadCount > 9 ? "9+" : unreadCount}
+                </span>
+              )}
             </Link>
           </Button>
 

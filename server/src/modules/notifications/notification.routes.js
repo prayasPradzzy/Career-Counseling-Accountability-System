@@ -7,6 +7,7 @@ router.use(requireAuth);
 
 router.get("/", controller.getMyNotifications);
 router.patch("/mark-all-read", controller.markAllRead);
+router.patch("/:id/read", controller.markOneRead);
 router.delete("/clear-all", controller.clearAll);
 
 module.exports = router;

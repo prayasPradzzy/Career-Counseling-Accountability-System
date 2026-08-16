@@ -51,7 +51,7 @@ const seedOnetWil = async () => {
         "20-card forced-rank sort measuring your 6 core Work Values: Achievement, Recognition, Relationships, Support, Independence, and Working Conditions.",
       instructions:
         "Sort all 20 work value statements by assigning each one a rating from 1 (Least Important) to 5 (Most Important). You must place exactly 4 statements at each level before submitting.",
-      estimatedDuration: 10,
+      estimatedDuration: 5,
       version: 3,
       status: "active",
       scoringStrategy: "onet_wil",

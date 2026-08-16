@@ -2,13 +2,7 @@
 
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
-import { CheckCircle2, Clock, Loader2, AlertCircle } from "lucide-react";
-
-function formatTime(seconds) {
-  const mins = Math.floor(seconds / 60);
-  const secs = seconds % 60;
-  return `${mins}:${secs < 10 ? "0" : ""}${secs}`;
-}
+import { CheckCircle2, Loader2, AlertCircle } from "lucide-react";
 
 function SaveStatusIndicator({ saveStatus }) {
   return (
@@ -52,12 +46,14 @@ function SaveStatusIndicator({ saveStatus }) {
  *    "14 activities selected"
  *  - progressValue: optional 0–100 number → renders a progress bar
  *  - saveStatus: "saved" | "saving" | "unsaved"
- *  - timeSpent: seconds (displayed as MM:SS timer)
+ *  - timeSpent: seconds — accepted for backward compatibility, but NOT
+ *    displayed: duration is tracked silently in the background (it feeds the
+ *    avg-completion-time stats) while the student takes the test.
  *  - children: optional top slot (full-width, above the main row) — e.g. the
- *    WIL column-fill counter grid
+ *    WIL column-fill counter grid or the Interest Profiler instruction
  *  - extrasLeft: optional node rendered inline next to progressText — e.g. the
  *    WIL per-card dot row
- *  - actions: optional node rendered after the timer — e.g. a submit button
+ *  - actions: optional node rendered on the right — e.g. a submit button
  *  - footer: optional bottom slot — e.g. Likert section tabs or the WIL
  *    "place more cards" gate message
  */
@@ -102,13 +98,10 @@ export default function AssessmentProgressHeader({
             </div>
           </div>
 
-          {/* Right: status, timer, actions */}
+          {/* Right: save status + actions (timer intentionally NOT shown —
+              duration is tracked silently for the avg-completion-time stats) */}
           <div className="flex items-center gap-3 text-xs shrink-0">
             <SaveStatusIndicator saveStatus={saveStatus} />
-            <div className="flex items-center gap-1 px-2.5 py-1 rounded bg-muted font-mono font-semibold">
-              <Clock className="size-3.5 text-primary" />
-              <span>{formatTime(timeSpent)}</span>
-            </div>
             {actions}
           </div>
         </div>

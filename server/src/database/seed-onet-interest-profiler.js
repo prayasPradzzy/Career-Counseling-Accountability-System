@@ -31,7 +31,7 @@ const seedOnetInterestProfiler = async () => {
       responseType: "checkbox",
       description: "60-item O*NET Interest Profiler measuring the 6 Holland RIASEC interest categories.",
       instructions: "Please select each activity that you would like to do. Uncheck activities you would not like to do.",
-      estimatedDuration: 10,
+      estimatedDuration: 5,
       version: 1,
       status: "active",
       scoringStrategy: "riasec_holland",

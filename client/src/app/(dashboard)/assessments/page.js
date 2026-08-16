@@ -28,6 +28,7 @@ import { toast } from "sonner";
 export default function AssessmentsPage() {
   const { user } = useAuth();
   const [activeSessionId, setActiveSessionId] = useState(null);
+  const [activeAssignmentId, setActiveAssignmentId] = useState(null);
   const [viewResultsKey, setViewResultsKey] = useState(null);
 
   const isCounselorOrAdmin = user?.role === "counselor" || user?.role === "admin";
@@ -46,6 +47,16 @@ export default function AssessmentsPage() {
   const activeSessionPayload = activeSessionData?.data?.activeSession;
   const existingActiveSession = activeSessionPayload?.session || activeSessionPayload;
 
+  // Continuous-flow support: the next not-yet-started assignment after the
+  // one currently being taken, so the student can move through a multi-
+  // assessment battery without returning to the dashboard between tests.
+  const nextAssignment =
+    assignments.find(
+      (a) =>
+        (a.status === "ASSIGNED" || a.status === "SCHEDULED") &&
+        (a._id || a.id) !== activeAssignmentId
+    ) || null;
+
   const handleStartOrResume = async (assignmentId) => {
     try {
       const res = await startSessionMutation.mutateAsync(assignmentId);
@@ -53,6 +64,7 @@ export default function AssessmentsPage() {
       const targetSessionId = session?._id || session?.id;
       if (targetSessionId) {
         setActiveSessionId(targetSessionId);
+        setActiveAssignmentId(assignmentId);
       } else {
         toast.error("Failed to start session. Please try again.");
       }
@@ -76,8 +88,16 @@ export default function AssessmentsPage() {
     return (
       <StudentAssessmentRunner
         sessionId={activeSessionId}
+        nextAssignment={nextAssignment}
+        onContinueToNext={() => {
+          if (nextAssignment) {
+            setActiveSessionId(null);
+            handleStartOrResume(nextAssignment._id || nextAssignment.id);
+          }
+        }}
         onBack={() => {
           setActiveSessionId(null);
+          setActiveAssignmentId(null);
           refetch();
         }}
       />
@@ -225,7 +245,7 @@ export default function AssessmentsPage() {
                         <span>Assessment Completed</span>
                       </div>
                       <p className="text-muted-foreground leading-relaxed">
-                        Your results are ready! Click "View My Results" to see your personality insights.
+                        Your results are ready! Click &quot;View My Results&quot; to see your personality insights.
                       </p>
                     </div>
                   ) : (
@@ -249,7 +269,7 @@ export default function AssessmentsPage() {
                     </div>
                     <div className="flex items-center gap-1.5">
                       <Timer className="size-3.5" />
-                      <span>{def.estimatedDuration || 20} mins</span>
+                      <span>~{def.estimatedDuration || 5} min</span>
                     </div>
                     {item.dueDate && (
                       <div className="flex items-center gap-1.5">

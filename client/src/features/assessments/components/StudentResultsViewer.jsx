@@ -4,7 +4,7 @@ import { useRouter } from "next/navigation";
 import { useMyAssessmentResults } from "../hooks/useAssessmentSession";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card";
-import { CheckCircle2, Loader2, Clock } from "lucide-react";
+import { CheckCircle2, Loader2, Clock, ArrowRight } from "lucide-react";
 
 /**
  * StudentResultsViewer
@@ -25,6 +25,8 @@ export default function StudentResultsViewer({
   definitionTitle,
   completedAt,
   onBack,
+  nextTitle = null,
+  onContinue,
 }) {
   const router = useRouter();
   const { data, isLoading, error } = useMyAssessmentResults(assessmentKey);
@@ -94,8 +96,18 @@ export default function StudentResultsViewer({
           </div>
         </CardContent>
 
-        <CardFooter className="bg-muted/20 border-t p-4">
+        <CardFooter className="bg-muted/20 border-t p-4 space-y-2">
+          {nextTitle && onContinue && (
+            <Button
+              className="w-full font-bold gap-2 bg-emerald-600 hover:bg-emerald-700 text-white"
+              onClick={onContinue}
+            >
+              Continue to {nextTitle}
+              <ArrowRight className="size-4" />
+            </Button>
+          )}
           <Button
+            variant={nextTitle && onContinue ? "outline" : "default"}
             className="w-full font-semibold"
             onClick={() => (onBack ? onBack() : router.push("/assessments"))}
           >

@@ -7,6 +7,13 @@ const assignAssessment = catchAsync(async (req, res) => {
   res.status(201).json(new ApiResponse(201, { assignment: result }, "Assessment assigned successfully."));
 });
 
+const assignAllAssessments = catchAsync(async (req, res) => {
+  const result = await assessmentAssignmentService.assignAllAssessments(req.body, req.user);
+  res.status(201).json(
+    new ApiResponse(201, result, `Full battery assigned: ${result.createdCount} created, ${result.skippedCount} already assigned.`)
+  );
+});
+
 const getStudentAssignments = catchAsync(async (req, res) => {
   const { studentId } = req.params;
   const assignments = await assessmentAssignmentService.getStudentAssignments(studentId, req.user);
@@ -79,6 +86,7 @@ const deleteAssignment = catchAsync(async (req, res) => {
 
 module.exports = {
   assignAssessment,
+  assignAllAssessments,
   getStudentAssignments,
   getMyAssignments,
   getCounselorAssignments,

@@ -4,20 +4,31 @@ import { useState } from "react";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { OverviewSection } from "./sections/OverviewSection";
 import { AssessmentHistorySection } from "./sections/AssessmentHistorySection";
+import { DemographicsSection } from "./sections/DemographicsSection";
 import { ConsentCard } from "./ConsentCard";
 import { InterviewTab } from "@/features/interviews/components/InterviewTab";
-import { InfoCard } from "@/components/common/InfoCard";
 import { GuardianCard } from "./GuardianCard";
 import { SectionCard } from "@/components/common/SectionCard";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { AssignAssessmentDialog } from "./AssignAssessmentDialog";
-import { useStudentAssignments, useAssignAssessment } from "@/features/assessments/hooks/useAssessmentAssignments";
+import { useStudentAssignments, useAssignAssessment, useAssignAllAssessments } from "@/features/assessments/hooks/useAssessmentAssignments";
+import { useActiveDefinitions } from "@/features/assessments/hooks/useAssessmentDefinitions";
 import { useAuth } from "@/context/AuthContext";
 import { toast } from "sonner";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from "@/components/ui/dialog";
 import {
   LayoutDashboard,
   UserCircle,
   BookOpen,
+  Loader2,
   Users,
   UserCheck,
   Award,
@@ -41,6 +52,7 @@ export function StudentProfileHub({
 }) {
   const [activeTab, setActiveTab] = useState("overview");
   const [assignAssessmentOpen, setAssignAssessmentOpen] = useState(false);
+  const [assignAllOpen, setAssignAllOpen] = useState(false);
   const [transferOwnershipOpen, setTransferOwnershipOpen] = useState(false);
   const { user } = useAuth();
 
@@ -70,8 +82,26 @@ export function StudentProfileHub({
   const { data: assignmentsData } = useStudentAssignments(studentUserId);
   const assignments = assignmentsData?.data?.assignments || [];
 
-  // Assign assessment mutation
+  // Assign assessment mutation + full-battery mutation
   const assignAssessmentMutation = useAssignAssessment();
+  const assignAllMutation = useAssignAllAssessments();
+  const { data: definitionsData } = useActiveDefinitions();
+  const activeDefinitionCount = definitionsData?.data?.definitions?.length || 0;
+
+  const handleAssignAll = () => {
+    assignAllMutation.mutate(studentUserId, {
+      onSuccess: (res) => {
+        toast.success(
+          res?.data?.message ||
+            `Full battery assigned: ${res?.data?.createdCount ?? 0} created, ${res?.data?.skippedCount ?? 0} already assigned.`
+        );
+        setAssignAllOpen(false);
+      },
+      onError: (err) => {
+        toast.error(err?.response?.data?.message || "Failed to assign full battery.");
+      },
+    });
+  };
 
   const handleAssignAssessment = (formData) => {
     assignAssessmentMutation.mutate(
@@ -106,13 +136,9 @@ export function StudentProfileHub({
               <LayoutDashboard className="size-3.5" />
               Overview
             </TabsTrigger>
-            <TabsTrigger value="personal" className="text-xs gap-1.5 px-3">
+            <TabsTrigger value="demographics" className="text-xs gap-1.5 px-3">
               <UserCircle className="size-3.5" />
-              Personal Info
-            </TabsTrigger>
-            <TabsTrigger value="education" className="text-xs gap-1.5 px-3">
-              <BookOpen className="size-3.5" />
-              Education
+              Demographics
             </TabsTrigger>
             <TabsTrigger value="guardian" className="text-xs gap-1.5 px-3">
               <Users className="size-3.5" />
@@ -154,58 +180,12 @@ export function StudentProfileHub({
           )}
         </TabsContent>
 
-        {/* 2. Personal Information Tab */}
-        <TabsContent value="personal" className="mt-4">
-          <InfoCard
-            title="Personal Identification & Contact"
-            subtitle="Core demographic details and platform permissions"
-            iconName="UserCircle"
-            items={[
-              { label: "Student Name", value: fullName },
-              { label: "Email Address", value: userObj.email },
-              { label: "Phone Number", value: profile?.phone || "Not provided" },
-              {
-                label: "Date of Birth",
-                value: profile?.dateOfBirth
-                  ? new Date(profile.dateOfBirth).toLocaleDateString()
-                  : "Not provided",
-              },
-              { label: "Gender Identity", value: profile?.gender || "Not specified" },
-              { label: "Account Role", value: userObj.role || "student" },
-            ]}
-          />
+        {/* 2. Demographics Tab — merged Personal Info + Education, editable */}
+        <TabsContent value="demographics" className="mt-4">
+          <DemographicsSection profile={profile} studentUserId={studentUserId} />
         </TabsContent>
 
-        {/* 3. Education Tab */}
-        <TabsContent value="education" className="mt-4">
-          <SectionCard
-            title="Academic Background & Education History"
-            subtitle="Schools, universities, degrees, and academic records"
-            iconName="BookOpen"
-          >
-            {profile?.education && profile.education.length > 0 ? (
-              <div className="space-y-3 pt-1">
-                {profile.education.map((edu, idx) => (
-                  <div key={edu._id || idx} className="p-4 rounded-lg border border-border bg-card space-y-1">
-                    <p className="font-semibold text-sm text-foreground">{edu.institution}</p>
-                    <p className="text-xs text-primary font-medium">
-                      {(edu.degreeProgram || edu.degree || "Degree") + (edu.fieldOfStudy ? ` in ${edu.fieldOfStudy}` : "")}
-                    </p>
-                    {(edu.startYear || edu.endYear || edu.graduationYear) && (
-                      <p className="text-xs text-muted-foreground">
-                        {edu.startYear || "?"} – {edu.endYear || edu.graduationYear || "Present"}
-                      </p>
-                    )}
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <p className="text-xs text-muted-foreground pt-1">No academic history records added.</p>
-            )}
-          </SectionCard>
-        </TabsContent>
-
-        {/* 4. Guardian Tab */}
+        {/* 3. Guardian Tab */}
         <TabsContent value="guardian" className="mt-4">
           <GuardianCard guardianInfo={profile?.guardianInfo} />
         </TabsContent>
@@ -259,6 +239,8 @@ export function StudentProfileHub({
           <AssessmentHistorySection
             assignments={assignments}
             onAssignAssessment={isCounselorOrAdmin ? () => setAssignAssessmentOpen(true) : undefined}
+            onAssignAll={isCounselorOrAdmin ? () => setAssignAllOpen(true) : undefined}
+            isAssigningAll={assignAllMutation.isPending}
           />
         </TabsContent>
 
@@ -283,6 +265,42 @@ export function StudentProfileHub({
           isAssigning={assignAssessmentMutation.isPending}
           studentName={fullName}
         />
+      )}
+
+      {/* Assign Full Battery Dialog (Counselor/Admin only) */}
+      {isCounselorOrAdmin && (
+        <Dialog open={assignAllOpen} onOpenChange={setAssignAllOpen}>
+          <DialogContent className="sm:max-w-md">
+            <DialogHeader>
+              <DialogTitle>Assign Full Battery</DialogTitle>
+              <DialogDescription>
+                Assign <strong>{activeDefinitionCount}</strong> active assessment{" "}
+                {activeDefinitionCount === 1 ? "instrument" : "instruments"} to{" "}
+                <strong>{fullName}</strong> in one go. Assessments that are already
+                assigned will be skipped. The student can then move through the
+                battery as one continuous flow.
+              </DialogDescription>
+            </DialogHeader>
+            <DialogFooter className="gap-2 pt-2">
+              <Button variant="outline" size="sm" onClick={() => setAssignAllOpen(false)} disabled={assignAllMutation.isPending}>
+                Cancel
+              </Button>
+              <Button
+                size="sm"
+                className="gap-1.5"
+                onClick={handleAssignAll}
+                disabled={assignAllMutation.isPending || activeDefinitionCount === 0}
+              >
+                {assignAllMutation.isPending ? (
+                  <Loader2 className="size-3.5 animate-spin" />
+                ) : (
+                  <BookOpen className="size-3.5" />
+                )}
+                {assignAllMutation.isPending ? "Assigning..." : "Assign Full Battery"}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       )}
 
       {/* Transfer Student Ownership Dialog (Admin only) */}

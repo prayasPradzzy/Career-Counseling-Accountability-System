@@ -9,11 +9,9 @@ const { deriveStudentLifecycleStatus, STUDENT_STATUS } = require("../../shared/c
 
 class AssessmentAssignmentService {
   /**
-   * 1. Counselor assigns an assessment to a student
+   * 0. Shared ownership boundary: counselor can only assign to own students.
    */
-  async assignAssessment(data, requestingUser) {
-    const { studentId, assessmentDefinitionId, dueDate, scheduledFor, counselorNotes, unlocksNextAssessmentId } = data;
-
+  async assertCanAssign(studentId, requestingUser) {
     // RBAC: Only Counselors and Admins can assign assessments
     if (requestingUser.role !== "counselor" && requestingUser.role !== "admin") {
       throw new ApiError(403, "Only counselors and administrators can assign assessments.");
@@ -39,13 +37,18 @@ class AssessmentAssignmentService {
       }
     }
 
-    // Verify Assessment Definition exists and is active
+    return studentUser;
+  }
+
+  /**
+   * 0b. Create one assignment + notify the student.
+   */
+  async createAssignment({ studentId, assessmentDefinitionId, requestingUser, dueDate, scheduledFor, counselorNotes }) {
     const definition = await AssessmentDefinition.findById(assessmentDefinitionId);
     if (!definition || definition.status !== "active") {
       throw new ApiError(404, "Assessment definition not found or inactive.");
     }
 
-    // Check if future scheduled date
     const now = new Date();
     const isFutureScheduled = scheduledFor && new Date(scheduledFor) > now;
     const initialStatus = isFutureScheduled ? ASSIGNMENT_STATUS.SCHEDULED : ASSIGNMENT_STATUS.ASSIGNED;
@@ -59,7 +62,6 @@ class AssessmentAssignmentService {
       scheduledFor: scheduledFor ? new Date(scheduledFor) : undefined,
       dueDate: dueDate ? new Date(dueDate) : undefined,
       counselorNotes: counselorNotes || "",
-      unlocksNextAssessmentId: unlocksNextAssessmentId || undefined,
       assignedAt: now,
     });
 
@@ -70,10 +72,103 @@ class AssessmentAssignmentService {
       await profile.save();
     }
 
+    // Notify the student that a new assessment is waiting
+    try {
+      const Notification = require("../notifications/notification.model");
+      await Notification.create({
+        userId: studentId,
+        title: "New Assessment Assigned",
+        message: `Your counselor assigned you: ${definition.title}.`,
+        type: "assessment_assigned",
+        link: `/assessments`,
+      });
+    } catch (notifErr) {
+      console.error("[Assignment Notification Error]", notifErr.message);
+    }
+
     return await AssessmentAssignment.findById(assignment._id)
       .populate("studentId", "firstName lastName email")
       .populate("counselorId", "firstName lastName email")
       .populate("assessmentDefinitionId", "title code category estimatedDuration description");
+  }
+
+  /**
+   * 1. Counselor assigns an assessment to a student
+   */
+  async assignAssessment(data, requestingUser) {
+    const { studentId, assessmentDefinitionId, dueDate, scheduledFor, counselorNotes, unlocksNextAssessmentId } = data;
+
+    await this.assertCanAssign(studentId, requestingUser);
+
+    const assignment = await this.createAssignment({
+      studentId,
+      assessmentDefinitionId,
+      requestingUser,
+      dueDate,
+      scheduledFor,
+      counselorNotes,
+    });
+
+    if (unlocksNextAssessmentId) {
+      assignment.unlocksNextAssessmentId = unlocksNextAssessmentId;
+      await assignment.save();
+    }
+
+    return assignment;
+  }
+
+  /**
+   * 1b. Assign EVERY active assessment definition in one call (full battery).
+   * Skips definitions that already have a live assignment (so it is safe to
+   * run repeatedly), creates one Assignment per remaining definition, and
+   * returns what was created vs. skipped.
+   */
+  async assignAllAssessments(data, requestingUser) {
+    const { studentId } = data;
+    if (!studentId) {
+      throw new ApiError(400, "studentId is required.");
+    }
+
+    await this.assertCanAssign(studentId, requestingUser);
+
+    const activeDefinitions = await AssessmentDefinition.find({ status: "active" }).sort({
+      category: 1,
+      code: 1,
+    });
+    if (activeDefinitions.length === 0) {
+      throw new ApiError(404, "No active assessment definitions found in the catalog.");
+    }
+
+    // Live assignments this student already has (skip those definitions)
+    const existing = await AssessmentAssignment.find({
+      studentId,
+      status: { $ne: ASSIGNMENT_STATUS.REJECTED },
+    }).select("assessmentDefinitionId");
+    const alreadyAssigned = new Set(
+      existing.map((a) => a.assessmentDefinitionId.toString())
+    );
+
+    const created = [];
+    const skipped = [];
+    for (const def of activeDefinitions) {
+      if (alreadyAssigned.has(def._id.toString())) {
+        skipped.push({ definitionId: def._id, title: def.title });
+        continue;
+      }
+      const assignment = await this.createAssignment({
+        studentId,
+        assessmentDefinitionId: def._id,
+        requestingUser,
+      });
+      created.push(assignment);
+    }
+
+    return {
+      createdCount: created.length,
+      skippedCount: skipped.length,
+      skipped,
+      created,
+    };
   }
 
   /**

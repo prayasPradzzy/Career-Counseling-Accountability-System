@@ -19,13 +19,7 @@ export default function ConfirmSubmissionModal({
   if (!open) return null;
 
   const isCheckbox = responseType === "checkbox";
-  const { answeredCount = 0, totalQuestions = 0, selectedCount = 0, timeSpentSeconds = 0 } = stats;
-
-  const formatTime = (seconds) => {
-    const mins = Math.floor(seconds / 60);
-    const secs = seconds % 60;
-    return `${mins}:${secs < 10 ? "0" : ""}${secs}`;
-  };
+  const { answeredCount = 0, totalQuestions = 0, selectedCount = 0 } = stats;
 
   const isLikertIncomplete = !isCheckbox && answeredCount < totalQuestions;
 
@@ -61,13 +55,6 @@ export default function ConfirmSubmissionModal({
                 </span>
               </div>
             )}
-
-            <div className="flex justify-between items-center pt-1 border-t border-border/40">
-              <span className="text-muted-foreground font-medium">Time spent:</span>
-              <span className="font-semibold text-foreground text-sm tabular-nums">
-                {formatTime(timeSpentSeconds)}
-              </span>
-            </div>
           </div>
 
           {/* Unanswered warning box (Likert-type ONLY) */}

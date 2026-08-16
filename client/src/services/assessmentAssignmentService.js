@@ -26,6 +26,14 @@ export const assessmentAssignmentService = {
   },
 
   /**
+   * Counselor assigns the FULL battery (every active definition) at once
+   */
+  async assignAllAssessments(studentId) {
+    const response = await api.post("/assessments/assign-all", { studentId });
+    return response.data;
+  },
+
+  /**
    * Student starts an assigned assessment (Enforces Guard Rule & Prerequisite Checks)
    */
   async startAssignment(assignmentId) {

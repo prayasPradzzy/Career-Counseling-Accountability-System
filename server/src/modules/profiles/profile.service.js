@@ -189,6 +189,27 @@ class ProfileService {
       if (data.phone !== undefined) profileDoc.phone = data.phone.trim();
       if (data.gender !== undefined) profileDoc.gender = data.gender;
 
+      // Demographics expansion (optional fields — blank/null is respected)
+      if (data.location && typeof data.location === "object") {
+        profileDoc.location = {
+          city: String(data.location.city || "").trim(),
+          state: String(data.location.state || "").trim(),
+          country: String(data.location.country || "").trim(),
+        };
+      }
+      if (data.isFirstGenerationLearner !== undefined) {
+        profileDoc.isFirstGenerationLearner =
+          data.isFirstGenerationLearner === null
+            ? null
+            : Boolean(data.isFirstGenerationLearner);
+      }
+      if (data.currentGradeYear !== undefined) {
+        profileDoc.currentGradeYear = String(data.currentGradeYear || "").trim();
+      }
+      if (data.learningDifference !== undefined) {
+        profileDoc.learningDifference = String(data.learningDifference || "").trim();
+      }
+
       // Handle academic / education object or arrays
       if (data.academic) {
         const gradYearVal = data.academic.graduationYear ? Number(data.academic.graduationYear) : undefined;

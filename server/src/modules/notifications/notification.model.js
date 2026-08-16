@@ -21,7 +21,13 @@ const notificationSchema = new mongoose.Schema(
     },
     type: {
       type: String,
-      enum: ["assessment_retake", "assessment_assigned", "general"],
+      enum: [
+        "assessment_retake",
+        "assessment_assigned",
+        "assessment_completed",
+        "interview_recorded",
+        "general",
+      ],
       default: "general",
     },
     link: {

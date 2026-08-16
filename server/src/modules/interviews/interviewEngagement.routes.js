@@ -17,6 +17,7 @@ const MAX_FILE_SIZE_BYTES = 200 * 1024 * 1024; // 200 MB
 router.use(requireAuth, restrictTo("counselor", "admin"));
 
 // Engagement lifecycle
+router.get("/interviews/overview", controller.getInterviewsOverview);
 router.get("/students/:studentId/interview-engagement", controller.getStudentEngagement);
 router.post("/students/:studentId/interview-engagement", controller.startEngagement);
 

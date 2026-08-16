@@ -82,6 +82,13 @@ const updateClientSchema = z.object({
     phone: z.string().optional(),
     dateOfBirth: z.string().optional(),
     gender: z.enum(["male", "female", "non-binary", "prefer-not-to-say"]).optional(),
+    location: z
+      .object({
+        city: z.string().optional(),
+        state: z.string().optional(),
+        country: z.string().optional(),
+      })
+      .optional(),
     education: z
       .array(
         z.object({
@@ -106,6 +113,9 @@ const updateClientSchema = z.object({
         phone: z.string().optional(),
       })
       .optional(),
+    currentGradeYear: z.string().max(50).optional(),
+    isFirstGenerationLearner: z.boolean().nullable().optional(),
+    learningDifference: z.string().max(1000).nullable().optional(),
   }),
 });
 

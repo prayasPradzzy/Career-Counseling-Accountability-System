@@ -14,6 +14,19 @@ const markAllRead = catchAsync(async (req, res) => {
   res.status(200).json(new ApiResponse(200, null, "All notifications marked as read."));
 });
 
+const markOneRead = catchAsync(async (req, res) => {
+  const { id } = req.params;
+  const notification = await Notification.findOneAndUpdate(
+    { _id: id, userId: req.user._id },
+    { read: true },
+    { new: true }
+  );
+  if (!notification) {
+    return res.status(404).json(new ApiResponse(404, null, "Notification not found."));
+  }
+  res.status(200).json(new ApiResponse(200, notification, "Notification marked as read."));
+});
+
 const clearAll = catchAsync(async (req, res) => {
   await Notification.deleteMany({ userId: req.user._id });
   res.status(200).json(new ApiResponse(200, null, "Notifications cleared."));
@@ -22,5 +35,6 @@ const clearAll = catchAsync(async (req, res) => {
 module.exports = {
   getMyNotifications,
   markAllRead,
+  markOneRead,
   clearAll,
 };

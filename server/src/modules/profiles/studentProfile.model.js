@@ -62,6 +62,29 @@ const studentProfileSchema = new mongoose.Schema(
       default: "prefer-not-to-say",
     },
     phone: { type: String, trim: true },
+    // Location (optional, career-context useful)
+    location: {
+      city: { type: String, trim: true, default: "" },
+      state: { type: String, trim: true, default: "" },
+      country: { type: String, trim: true, default: "" },
+    },
+    // Optional/sensitive fields — always clearly optional. Null = not answered.
+    isFirstGenerationLearner: {
+      type: Boolean,
+      default: null,
+    },
+    // Any disclosed learning difference or accessibility need (free text).
+    learningDifference: {
+      type: String,
+      trim: true,
+      default: "",
+    },
+    // Current grade / year of study (e.g. "Grade 11", "2nd Year")
+    currentGradeYear: {
+      type: String,
+      trim: true,
+      default: "",
+    },
     education: [educationSchema],
     careerGoals: [{ type: String, trim: true }],
     targetIndustries: [{ type: String, trim: true }],

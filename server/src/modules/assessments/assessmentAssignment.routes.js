@@ -33,6 +33,13 @@ router.post(
   controller.assignAssessment
 );
 
+// Counselor/Admin assigns the FULL battery (every active definition) at once
+router.post(
+  "/assign-all",
+  restrictTo("counselor", "admin"),
+  controller.assignAllAssessments
+);
+
 // Student starts an assigned assessment (Enforces Guard Rule & Prerequisite Lock Check)
 router.patch("/assignments/:assignmentId/start", controller.startAssignment);
 
