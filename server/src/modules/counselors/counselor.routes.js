@@ -116,16 +116,35 @@ router.post(
 );
 
 const AssessmentScore = require("../assessments/assessmentScore.model");
+const { isSameId, canCounselorAccessStudent } = require("../../shared/utils/ownership.utils");
 
 // GET /api/v1/counselor/students/:id/assessments/ipip-neo-120/results
+// NOTE: this route previously had TWO `$or` keys in the same query object — the
+// second silently overwrote the first, dropping the student scope so ANY
+// student's latest IPIP score was returned (a real data leak, same bug class as
+// SCHEMA_CONTRACT.md). Fixed: one $and with both clauses + an ownership check.
 router.get(
   "/students/:id/assessments/ipip-neo-120/results",
   restrictTo("counselor", "admin"),
   catchAsync(async (req, res) => {
     const studentId = req.params.id;
+
+    // Ownership: counselors may only pull results for their OWN students
+    if (req.user.role === "counselor") {
+      const [studentUser, studentProfile] = await Promise.all([
+        User.findById(studentId).select("counselorId role"),
+        StudentProfile.findOne({ userId: studentId }).select("assignedCounselorId invitedBy"),
+      ]);
+      if (!canCounselorAccessStudent(req.user._id, studentUser, studentProfile)) {
+        throw new ApiError(403, "Access denied: You can only access your own assigned students.");
+      }
+    }
+
     const score = await AssessmentScore.findOne({
-      $or: [{ clientId: studentId }, { studentId: studentId }],
-      $or: [{ assessmentKey: "ipip-neo-120" }, { category: "personality" }],
+      $and: [
+        { $or: [{ clientId: studentId }, { studentId: studentId }] },
+        { $or: [{ assessmentKey: "ipip-neo-120" }, { category: "personality" }] },
+      ],
     }).sort({ version: -1, calculatedAt: -1 });
 
     if (!score) {

@@ -48,8 +48,17 @@ class ScoringEngine {
     }
 
     // 4. Fetch Raw Responses
+    // Checkbox assessments (e.g. O*NET Interest Profiler) may legitimately have
+    // ZERO responses — "none of these apply to me" is a valid answer and the
+    // RIASEC strategy already handles the empty case (all-zero category scores
+    // + deterministic tie-broken Holland code). Requiring responses here turned
+    // a valid 0-box submission into a 500; the required-question check in
+    // submitSession already blocks empty submissions for non-checkbox tests.
     const responseDoc = await AssessmentResponse.findOne({ sessionId: session._id });
-    if (!responseDoc || !responseDoc.responses || responseDoc.responses.length === 0) {
+    if (
+      definition?.responseType !== "checkbox" &&
+      (!responseDoc || !responseDoc.responses || responseDoc.responses.length === 0)
+    ) {
       throw new ApiError(400, "No responses found for this assessment session.");
     }
 

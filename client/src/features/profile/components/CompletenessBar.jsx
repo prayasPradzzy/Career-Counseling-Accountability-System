@@ -6,7 +6,7 @@ export function CompletenessBar({ percentage }) {
   return (
     <div className="pt-2 max-w-md space-y-1.5">
       <div className="flex items-center justify-between text-xs text-muted-foreground">
-        <span>Profile Completeness</span>
+        <span>Intake Progress</span>
         <span className="font-semibold text-foreground">{safePercent}%</span>
       </div>
       <div className="h-2 w-full bg-muted rounded-full overflow-hidden">

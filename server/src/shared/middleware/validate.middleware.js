@@ -10,8 +10,13 @@ const validate = (schema) => (req, res, next) => {
     next();
   } catch (error) {
     // Format Zod errors nicely
-    const errorMessage = error.errors.map((err) => `${err.path.join('.')}: ${err.message}`).join(", ");
-    next(new ApiError(400, errorMessage, error.errors));
+    // Zod v4 exposes issues as `error.issues`; older versions used `error.errors`.
+    // Guard both so a validation rejection never crashes into a 500.
+    const issues = error.issues || error.errors || [];
+    const errorMessage = issues
+      .map((err) => `${(err.path || []).join(".")}: ${err.message}`)
+      .join(", ");
+    next(new ApiError(400, errorMessage, issues));
   }
 };
 

@@ -178,7 +178,7 @@ export default function ClientDetailPage({ params: paramsPromise }) {
 
       {/* Grid of Profile Section Cards */}
       <WidgetGrid cols={{ default: 1, lg: 2 }} gap="gap-6">
-        {/* Profile Completeness Card */}
+        {/* Intake Progress Card */}
         <ProfileCompletion percentage={profile.completionPercentage || 0} />
 
         {/* Consent Card */}

@@ -80,10 +80,10 @@ export function StudentDashboardView({ data }) {
           </SectionCard>
         </div>
 
-        {/* Right Column (1 Col): Profile Completion */}
+        {/* Right Column (1 Col): Intake Progress */}
         <div className="space-y-6">
           <ProgressCard
-            title="Profile Completeness"
+            title="Intake Progress"
             subtitle="Academic history & career goals"
             percentage={data?.profileCompleteness ?? 0}
             iconName="Target"

@@ -4,7 +4,14 @@
  * headers came back, so it doubles as a live CORS check.
  * Usage: node scripts/liveSignupWalkthrough.js [base-url]
  */
-const base = (process.argv[2] || "https://career-path-fjad.onrender.com/api/v1").replace(/\/$/, "");
+// Base URL is required — pass it as an argument or set LIVE_API_URL. No
+// hardcoded production URL here so this script never pins branding/deployment
+// details into the repo.
+const base = (process.argv[2] || process.env.LIVE_API_URL || "").replace(/\/$/, "");
+if (!base) {
+  console.error("Usage: node scripts/liveSignupWalkthrough.js <base-url>  (or set LIVE_API_URL)");
+  process.exit(1);
+}
 const origin = "https://career-counseling-accountability-sy.vercel.app";
 const stamp = Date.now().toString().slice(-8);
 const counselorEmail = `cors.verify.${stamp}@example.com`;

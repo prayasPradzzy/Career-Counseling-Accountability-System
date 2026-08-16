@@ -454,6 +454,23 @@ class AssessmentSessionService {
       }
     }
 
+    // Forced-rank-sort (O*NET Work Importance Locator): the distribution must be
+    // genuinely enforced server-side, not just visually suggested in the UI — a
+    // direct API call must not be able to submit an unbalanced sort.
+    if (definition?.responseType === "forced-rank-sort") {
+      const columnCounts = { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 };
+      for (const r of responseDoc?.responses || []) {
+        const v = Number(r.selectedValue);
+        if (v >= 1 && v <= 5) columnCounts[v] += 1;
+      }
+      if (Object.values(columnCounts).some((c) => c !== 4)) {
+        throw new ApiError(
+          400,
+          "Cannot submit. Each importance level must contain exactly 4 cards. Adjust any over- or under-filled level."
+        );
+      }
+    }
+
     // Transition & Lock Session
     const now = new Date();
     session.status = SESSION_STATUS.SUBMITTED;

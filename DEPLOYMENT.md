@@ -38,6 +38,9 @@ Known non-blocking lint state: ESLint reports 22 errors / 10 warnings across the
 | `CLIENT_URL` | Your Vercel URL, e.g. `https://your-app.vercel.app` (used for CORS + redirect links). Accepts a **comma-separated list** of origins — Vercel regenerates project URLs on rename, so add every Vercel URL you use, e.g. `https://app.vercel.app,https://preview.vercel.app` |
 | `NODE_ENV` | `production` |
 | `PORT` | Render sets this automatically — the code reads `process.env.PORT` |
+| `LLM_PROVIDER` | AI provider for interview question generation: `openai` (default), `groq`, or `gemini` — see the AI Services Layer (`server/src/modules/ai/ai.service.js`) |
+| `OPENAI_API_KEY` / `GROQ_API_KEY` / `GEMINI_API_KEY` | The API key for the provider you chose (`LLM_PROVIDER`). **Never hardcode a key in code** — the service only reads from the environment. With no key set, question generation falls back to the deterministic local generator (audit trail marks `source: "fallback"`) |
+| `LLM_MODEL` | Optional model override (e.g. `llama-3.3-70b-versatile` for Groq, `gpt-4o-mini` for OpenAI) — the service picks a sensible default per provider if unset |
 
 ### Frontend (set on Vercel)
 

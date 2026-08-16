@@ -8,7 +8,11 @@ const signupSchema = z.object({
     lastName: z.string().min(2, "Last name must be at least 2 characters").max(50).optional(),
     email: z.string().email("Invalid email format"),
     password: z.string().min(8, "Password must be at least 8 characters"),
-    role: z.enum(["student", "counselor", "parent"], {
+    // 'admin' is intentionally INCLUDED so it passes validation and reaches the
+    // service layer, which rejects it with the documented 403 role_not_allowed.
+    // (If the enum rejected it here, the 403 intent would be unreachable and the
+    // request would fail as a generic 400 instead.)
+    role: z.enum(["student", "counselor", "parent", "admin"], {
       errorMap: () => ({ message: "invalid_role" }),
     }),
     code: z.string().optional(),

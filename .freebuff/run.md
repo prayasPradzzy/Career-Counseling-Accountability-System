@@ -53,6 +53,12 @@ seeded once: `cd server && node src/database/seed-interview-prompts.js`
    new one. The client reads the same `.env.local` as the main checkout, so
    `NEXT_PUBLIC_API_URL` (default `http://localhost:5000/api/v1`) applies as-is.
 
+   CORS gotcha: the API's allowlist comes from `CLIENT_URL` in `server/.env`.
+   If you run the client on a port other than 3000, ADD that origin to
+   `CLIENT_URL` (comma-separated) or the browser silently drops some API calls
+   (dashboard stats render 0/blank). Currently set to
+   `http://localhost:3000,http://localhost:3001`.
+
 3. Open the client URL (e.g. `http://localhost:3001`) and log in as a student.Note: the API on port 5000 is a plain `node src/server.js` process — restart it
  to pick up server code changes (it does not watch files). `npm run dev`
  (nodemon) is also available. The API port is env-overridable:
@@ -86,6 +92,17 @@ provider routing through the AI Services Layer (stubbed fetch, no real key).
 `server/scripts/setupInterviewHighDemo.js` fabricates a demo student
 (`interview.high.demo@example.com`) with High-priority cluster signals and a
 fresh approved question set for visual verification.
+
+`server/scripts/auditFinal.js` is the COMPREHENSIVE FINAL AUDIT: one clean
+end-to-end scenario (fresh counselor + student through the REAL signup
+flow) covering auth/access control, mutual-visibility scoping, all three
+assessments (IPIP incomplete-block + auto-score, Interest-Profiler zero-box
+submit, WIL forced-rank server-side enforcement + math spot-check), the
+retake system, interview Phase 1+2 (incl. consent gate + GridFS + signed
+URLs), student-friendly-only results, and Intake-Progress parity — then
+self-cleans. Run it with the API on :5000: `node scripts/auditFinal.js`.
+Exit 0 = 117 checks pass. (It also doubles as a regression net: it once
+caught a live data leak and a 500-on-empty-scoring bug that are now fixed.)
 
 ## AI provider (Groq)
 
